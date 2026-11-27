@@ -17,6 +17,12 @@ jobs:
       IS_PROD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       BRANCH_SLUG: ${{ github.head_ref || github.ref_name }}
     steps:
+      - name: Sanitize branch slug
+        id: slug
+        run: |
+          raw="${{ env.BRANCH_SLUG }}"
+          echo "value=${raw//\//-}" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub deployment
         uses: chrnorm/deployment-action@v2
         id: deployment
@@ -27,7 +33,7 @@ jobs:
             ${{ env.IS_PROD == 'true'
               && 'https://eidon-two.vercel.app'
               || format('https://eidon-two-git-{0}-tato10861-code.vercel.app',
-                        env.BRANCH_SLUG) }}
+                        steps.slug.outputs.value) }}
           description: >-
             ${{ env.IS_PROD == 'true'
               && 'Vercel production deploy'
@@ -43,7 +49,7 @@ jobs:
             ${{ env.IS_PROD == 'true'
               && 'https://eidon-two.vercel.app'
               || format('https://eidon-two-git-{0}-tato10861-code.vercel.app',
-                        env.BRANCH_SLUG) }}
+                        steps.slug.outputs.value) }}
           description: >-
             ${{ env.IS_PROD == 'true'
               && 'Production deployment live'
