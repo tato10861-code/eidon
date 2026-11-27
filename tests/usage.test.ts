@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { recordApiCall, recordChat, recordExport, getUsage, getUsageSummary } from "../lib/usage";
 
 describe("usage accounting", () => {
