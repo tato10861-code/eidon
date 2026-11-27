@@ -270,6 +270,16 @@ messages/            Marketing copy (en, ar)
 - [ ] Marketplace for community-built employees.
 - [ ] SOC 2 Type II audit.
 
+## Deployments
+
+Every push to `main` creates a **production** deployment on Vercel and a matching
+GitHub Deployment (visible at
+[github.com/tato10861-code/eidon/deployments](https://github.com/tato10861-code/eidon/deployments)).
+Every pull request creates a **preview** deployment. The badges at the top of this
+README reflect the latest production and preview status and update automatically.
+
+Production URL: https://eidon-two.vercel.app
+
 ## Demo content
 
 The dashboard figures, live-activity feed, testimonials and status-page uptime numbers

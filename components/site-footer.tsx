@@ -22,9 +22,11 @@ export function SiteFooter({ t, locale }: { t: Dict; locale: Locale }) {
       links: [
         { label: t.footer.docs, href: "/docs" },
         { label: t.footer.api, href: "/docs#api" },
+        { label: "Evals", href: "/evals" },
+        { label: "Marketplace", href: "/marketplace" },
+        { label: "Voice", href: "/voice" },
         { label: t.footer.security, href: "/security" },
         { label: t.footer.status, href: "/status" },
-        { label: t.footer.changelog, href: "/docs#changelog" },
       ],
     },
     {
