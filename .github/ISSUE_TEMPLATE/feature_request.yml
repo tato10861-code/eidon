@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a capability, employee or integration.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you solving?
+      description: Describe the job to be done, not just the feature.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Employee runtime
+        - Studio / builder
+        - Integrations
+        - Dashboard & analytics
+        - Marketing site
+        - Docs
+        - Security
+        - Other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

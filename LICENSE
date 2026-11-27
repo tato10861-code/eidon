@@ -1,0 +1,30 @@
+Eidon Proprietary License
+Copyright (c) 2026 Eidon Labs. All rights reserved.
+
+This software and its source code, design system, prompts, evaluation suites and
+documentation (the "Software") are proprietary and confidential.
+
+1. LIMITED EVALUATION
+   You may view, clone and run the Software for personal evaluation and for
+   contributing back to this repository. No other right is granted.
+
+2. RESTRICTIONS
+   Without prior written permission from Eidon Labs, you may not:
+   a. use the Software in production or as part of a commercial offering;
+   b. copy, modify, distribute, sublicense, sell or lease the Software;
+   c. create derivative works or remove proprietary notices;
+   d. use the Eidon name, logo or brand assets.
+
+3. CONTRIBUTIONS
+   By submitting a contribution you grant Eidon Labs a perpetual, worldwide,
+   royalty-free, irrevocable licence to use, modify and commercialise it.
+
+4. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+
+5. LIABILITY
+   IN NO EVENT SHALL EIDON LABS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
+
+For commercial licensing, contact hello@eidon.ai.
