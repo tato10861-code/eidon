@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/login",
     "/marketplace",
     "/voice",
+    "/workspaces",
     "/pricing",
     "/docs",
     "/security",

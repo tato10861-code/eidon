@@ -16,6 +16,10 @@ reason, use your tools and finish real work.
 > **v0.1.0 — early access.** The platform, the workforce and the runtime are complete.
 > Workspace auth, live OAuth tool execution and billing are the next milestones.
 
+**Product model:** B2B SaaS. Multi-tenant workspaces, per-workspace billing and usage,
+regional data residency, SSO/SCIM on Enterprise. Free Starter tier, $499/mo Scale,
+custom Enterprise.
+
 ---
 
 ## Why Eidon exists
