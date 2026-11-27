@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 import { resolveEmployee, runEmployee } from "@/lib/ai/engine";
 import { rateLimit } from "@/lib/rate-limit";
+import { getNeon } from "@/lib/neon";
+import { recordChat } from "@/lib/usage";
 import type { EmployeeConfig } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -9,6 +11,8 @@ export const maxDuration = 60;
 
 interface ChatBody {
   employeeId?: string;
+  workspaceId?: string;
+  conversationId?: string;
   messages?: { role?: string; content?: string }[];
   config?: Partial<EmployeeConfig>;
 }
@@ -54,6 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   const employee = resolveEmployee(body.employeeId ?? "ava", body.config);
+  const workspaceId = body.workspaceId ?? "demo";
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -62,6 +67,9 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       };
 
+      let fullReply = "";
+      let totalTokens = 0;
+
       try {
         for await (const event of runEmployee({
           employee,
@@ -69,7 +77,31 @@ export async function POST(request: NextRequest) {
           config: body.config,
         })) {
           send(event);
+          if (event.type === "delta") fullReply += event.text;
+          if (event.type === "done") totalTokens = event.usage.tokens;
         }
+
+        // Persist to Neon when conversation ID is provided
+        const sql = getNeon();
+        if (sql && body.conversationId && fullReply) {
+          const lastUser = messages.at(-1);
+          try {
+            if (lastUser) {
+              await sql`
+                insert into messages (conversation_id, role, content)
+                values (${body.conversationId}, ${lastUser.role}, ${lastUser.content})
+              `;
+            }
+            await sql`
+              insert into messages (conversation_id, role, content)
+              values (${body.conversationId}, 'assistant', ${fullReply})
+            `;
+          } catch {
+            // Non-fatal: persistence failure should not break the stream
+          }
+        }
+
+        recordChat(workspaceId, totalTokens, employee.id);
       } catch {
         send({
           type: "error",
