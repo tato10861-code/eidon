@@ -18,14 +18,32 @@ powers every conversation until you add `OPENAI_API_KEY`.
 
 ## Quality gates
 
-Every pull request must pass:
+Every pull request must pass all four CI jobs:
 
 ```bash
-npm run typecheck
-npm run build
+npm run lint        # ESLint 10 flat config — zero errors required
+npm run typecheck   # tsc --noEmit
+npm run test        # vitest with coverage
+npm run build       # production Next.js build
 ```
 
-CI runs the same commands on Node 22, and CodeQL scans every push.
+Husky enforces lint-staged (ESLint + Prettier) on every `git commit`, and
+Commitlint validates commit messages against Conventional Commits before the
+commit is recorded. CI runs the same commands on Node 22, and CodeQL scans
+every push to `main`.
+
+Conventional Commit types in use:
+
+| Type       | Use when                                     |
+| ---------- | -------------------------------------------- |
+| `feat`     | New feature or capability                    |
+| `fix`      | Bug fix                                      |
+| `docs`     | Documentation only                           |
+| `chore`    | Build, tooling, dependency or config changes |
+| `refactor` | Code change that is neither a fix nor a feat |
+| `test`     | Adding or updating tests                     |
+| `perf`     | Performance improvement                      |
+| `ci`       | CI/CD workflow changes                       |
 
 ## Conventions
 

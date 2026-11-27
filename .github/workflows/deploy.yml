@@ -2,9 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -15,15 +13,25 @@ jobs:
     name: Record deployment
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      IS_PROD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      BRANCH_SLUG: ${{ github.head_ref || github.ref_name }}
     steps:
       - name: Create GitHub deployment
         uses: chrnorm/deployment-action@v2
         id: deployment
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          environment: ${{ github.event_name == 'push' && 'production' || 'preview' }}
-          environment-url: ${{ github.event_name == 'push' && 'https://eidon-two.vercel.app' || format('https://eidon-two-git-{0}-tato10861-code.vercel.app', github.head_ref) }}
-          description: "${{ github.event_name == 'push' && 'Vercel production deploy' || 'Vercel preview deploy' }}"
+          environment: ${{ env.IS_PROD == 'true' && 'production' || 'preview' }}
+          environment-url: >-
+            ${{ env.IS_PROD == 'true'
+              && 'https://eidon-two.vercel.app'
+              || format('https://eidon-two-git-{0}-tato10861-code.vercel.app',
+                        env.BRANCH_SLUG) }}
+          description: >-
+            ${{ env.IS_PROD == 'true'
+              && 'Vercel production deploy'
+              || format('Vercel preview — {0}', env.BRANCH_SLUG) }}
 
       - name: Mark deployment successful
         uses: chrnorm/deployment-status@v2
@@ -31,5 +39,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           deployment-id: ${{ steps.deployment.outputs.deployment_id }}
           state: success
-          environment-url: ${{ github.event_name == 'push' && 'https://eidon-two.vercel.app' || format('https://eidon-two-git-{0}-tato10861-code.vercel.app', github.head_ref) }}
-          description: "${{ github.event_name == 'push' && 'Vercel production deployment' || 'Vercel preview deployment' }}"
+          environment-url: >-
+            ${{ env.IS_PROD == 'true'
+              && 'https://eidon-two.vercel.app'
+              || format('https://eidon-two-git-{0}-tato10861-code.vercel.app',
+                        env.BRANCH_SLUG) }}
+          description: >-
+            ${{ env.IS_PROD == 'true'
+              && 'Production deployment live'
+              || format('Preview deployment — {0}', env.BRANCH_SLUG) }}
