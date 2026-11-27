@@ -1,8 +1,33 @@
+# Line endings
 * text=auto eol=lf
+
+# Binary assets
 *.png binary
 *.jpg binary
 *.jpeg binary
 *.gif binary
 *.ico binary
-*.svg text eol=lf
 *.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+
+# SVG as text
+*.svg text eol=lf
+
+# GitHub Linguist — keep language stats honest
+*.sql linguist-language=PLpgSQL
+*.md linguist-documentation
+*.mdx linguist-documentation
+*.json linguist-documentation
+*.yml linguist-documentation
+*.yaml linguist-documentation
+*.toml linguist-documentation
+*.lock linguist-generated
+*.min.js linguist-generated
+*.min.css linguist-generated
+
+# Vendored/generated
+node_modules/** linguist-vendored
+.next/** linguist-vendored
+coverage/** linguist-vendored
