@@ -197,6 +197,23 @@ Embed an employee:
 ></iframe>
 ```
 
+## Real backend (optional, free tier)
+
+Eidon ships with a deterministic demo engine so it runs with zero configuration.
+To make it a **real, multi-tenant platform** with persistence and live models, add
+free-tier services:
+
+| Capability      | Free option                             | Env vars                                                                                 |
+| --------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Database + auth | [Supabase](https://supabase.com) (free) | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
+| LLM (fast)      | [Groq](https://groq.com) (free tier)    | `OPENAI_BASE_URL=https://api.groq.com/openai/v1`, `OPENAI_MODEL=llama-3.3-70b-versatile` |
+| LLM (local)     | [Ollama](https://ollama.com)            | `OPENAI_BASE_URL=http://localhost:11434/v1` (no key)                                     |
+| Hosting         | [Vercel](https://vercel.com) (free)     | `NEXT_PUBLIC_SITE_URL`                                                                   |
+
+Apply `supabase/schema.sql` in the Supabase SQL editor to create workspaces,
+employees, conversations, messages, tool calls and an append-only audit log.
+With no env vars set, the app falls back to demo mode — nothing breaks.
+
 ## Deploy to Vercel
 
 1. Import the repository at [vercel.com/new](https://vercel.com/new).

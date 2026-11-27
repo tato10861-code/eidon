@@ -2,8 +2,11 @@ import { cookies } from "next/headers";
 import { defaultLocale, isLocale, localeCookie } from "./config";
 import { en } from "@/messages/en";
 import { ar } from "@/messages/ar";
+import { es } from "@/messages/es";
+import { fr } from "@/messages/fr";
+import { de } from "@/messages/de";
 
-const dictionaries = { en, ar };
+const dictionaries = { en, ar, es, fr, de };
 
 export async function getLocale() {
   const store = await cookies();
@@ -13,5 +16,6 @@ export async function getLocale() {
 
 export async function getDictionary() {
   const locale = await getLocale();
-  return { locale, t: dictionaries[locale] };
+  const dict = dictionaries[locale as keyof typeof dictionaries] ?? en;
+  return { locale, t: dict };
 }
