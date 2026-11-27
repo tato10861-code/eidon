@@ -1,0 +1,42 @@
+{
+  "name": "eidon",
+  "version": "0.1.0",
+  "description": "Official Node.js / TypeScript SDK for the Eidon AI employee platform",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "eidon",
+    "ai",
+    "employee",
+    "llm",
+    "sdk"
+  ],
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "msw": "^2.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

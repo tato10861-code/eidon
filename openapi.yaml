@@ -1,0 +1,566 @@
+openapi: 3.1.0
+info:
+  title: Eidon API
+  description: |
+    The Eidon platform API — deploy AI employees that think, reason and act
+    on your company's behalf. Build SaaS products, B2B integrations and
+    enterprise automations on top of a battle-tested multi-provider AI engine.
+  version: 0.1.0
+  contact:
+    name: Eidon Support
+    url: https://eidon.ai
+  license:
+    name: Commercial
+    url: https://eidon.ai/licensing
+
+servers:
+  - url: https://eidon.ai
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: chat
+    description: Real-time streaming chat with AI employees
+  - name: employees
+    description: Manage AI employee configurations
+  - name: conversations
+    description: Conversation history and management
+  - name: messages
+    description: Individual message operations
+  - name: workspaces
+    description: Multi-tenant workspace management
+  - name: keys
+    description: API key management
+  - name: usage
+    description: Usage analytics and billing data
+  - name: webhooks
+    description: Webhook subscriptions for real-time events
+  - name: health
+    description: Service health and status
+
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      summary: Service health check
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/employees:
+    get:
+      operationId: listEmployees
+      tags: [employees]
+      summary: List all AI employees
+      responses:
+        "200":
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Employee"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/chat:
+    post:
+      operationId: chat
+      tags: [chat]
+      summary: Stream a chat response from an AI employee
+      description: |
+        Sends messages to an AI employee and streams the response as
+        Server-Sent Events (SSE). Each event is a JSON object on a
+        `data:` line. Event types: `meta`, `delta`, `done`, `error`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: SSE stream of chat events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                stream:
+                  value: |
+                    data: {"type":"meta","model":"claude-sonnet-4-5","mode":"live"}
+
+                    data: {"type":"delta","text":"Hello, how can I help?"}
+
+                    data: {"type":"done","usage":{"tokens":42,"latencyMs":1234}}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/conversations:
+    get:
+      operationId: listConversations
+      tags: [conversations]
+      summary: List conversations
+      parameters:
+        - name: workspaceId
+          in: query
+          schema: { type: string }
+        - name: employeeId
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated list of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Conversation"
+                  nextCursor:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/messages:
+    get:
+      operationId: listMessages
+      tags: [messages]
+      summary: List messages in a conversation
+      parameters:
+        - name: conversationId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        "200":
+          description: Messages list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: createMessage
+      tags: [messages]
+      summary: Append a message to a conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conversationId, role, content]
+              properties:
+                conversationId: { type: string }
+                role:
+                  type: string
+                  enum: [user, assistant]
+                content: { type: string }
+      responses:
+        "201":
+          description: Message created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/workspaces:
+    get:
+      operationId: listWorkspaces
+      tags: [workspaces]
+      summary: List workspaces
+      responses:
+        "200":
+          description: Workspace list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspaces:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Workspace"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/keys:
+    get:
+      operationId: listApiKeys
+      tags: [keys]
+      summary: List API keys for the workspace
+      responses:
+        "200":
+          description: Key list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createApiKey
+      tags: [keys]
+      summary: Create a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                workspaceId: { type: string }
+      responses:
+        "201":
+          description: New API key (shown only once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/usage:
+    get:
+      operationId: getUsage
+      tags: [usage]
+      summary: Get usage analytics
+      parameters:
+        - name: workspaceId
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Usage data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/webhooks:
+    get:
+      operationId: listWebhooks
+      tags: [webhooks]
+      summary: List webhook subscriptions
+      responses:
+        "200":
+          description: Webhook list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Webhook"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createWebhook
+      tags: [webhooks]
+      summary: Create a webhook subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookCreate"
+      responses:
+        "201":
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/webhooks/{id}:
+    delete:
+      operationId: deleteWebhook
+      tags: [webhooks]
+      summary: Delete a webhook subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        code: { type: string }
+
+    HealthResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        service: { type: string, example: eidon }
+        version: { type: string }
+        provider: { type: string }
+        db: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    Employee:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string }
+        description: { type: string }
+        systemPrompt: { type: string }
+        tools:
+          type: array
+          items: { type: string }
+
+    ChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        employeeId: { type: string }
+        workspaceId: { type: string }
+        conversationId: { type: string }
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        config:
+          $ref: "#/components/schemas/EmployeeConfig"
+
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content: { type: string }
+
+    EmployeeConfig:
+      type: object
+      properties:
+        name: { type: string }
+        company: { type: string }
+        tone:
+          type: string
+          enum: [precise, friendly, formal, casual]
+        mission: { type: string }
+        knowledge:
+          type: array
+          items: { type: string }
+        guardrails:
+          type: array
+          items: { type: string }
+
+    Conversation:
+      type: object
+      properties:
+        id: { type: string }
+        employeeId: { type: string }
+        workspaceId: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        messageCount: { type: integer }
+
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        conversationId: { type: string }
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content: { type: string }
+        createdAt: { type: string, format: date-time }
+        tokens: { type: integer }
+        model: { type: string }
+
+    Workspace:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        plan:
+          type: string
+          enum: [free, starter, pro, enterprise]
+        createdAt: { type: string, format: date-time }
+
+    ApiKey:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        prefix: { type: string, description: "First 8 chars of the key" }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+
+    ApiKeyCreated:
+      allOf:
+        - $ref: "#/components/schemas/ApiKey"
+        - type: object
+          properties:
+            key:
+              type: string
+              description: Full key shown only once at creation
+
+    UsageResponse:
+      type: object
+      properties:
+        totalTokens: { type: integer }
+        totalRequests: { type: integer }
+        totalCost: { type: number }
+        byDay:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              tokens: { type: integer }
+              requests: { type: integer }
+        byEmployee:
+          type: array
+          items:
+            type: object
+            properties:
+              employeeId: { type: string }
+              tokens: { type: integer }
+              requests: { type: integer }
+
+    Webhook:
+      type: object
+      properties:
+        id: { type: string }
+        url: { type: string, format: uri }
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - conversation.created
+              - message.created
+              - chat.completed
+              - key.created
+              - key.revoked
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    WebhookCreate:
+      type: object
+      required: [url, events]
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - conversation.created
+              - message.created
+              - chat.completed
+              - key.created
+              - key.revoked
+        secret:
+          type: string
+          description: Optional HMAC secret for signature verification
