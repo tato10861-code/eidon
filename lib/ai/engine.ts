@@ -815,6 +815,95 @@ function composeReply(ctx: Context) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Anthropic streaming                                                         */
+/* -------------------------------------------------------------------------- */
+
+async function* streamAnthropic(
+  employee: EmployeeTemplate,
+  messages: EngineInput["messages"],
+  config?: Partial<EmployeeConfig>,
+): AsyncGenerator<EngineEvent> {
+  const startedAt = Date.now();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
+
+  if (!apiKey) {
+    yield* streamLocal(employee, messages, config);
+    return;
+  }
+
+  yield { type: "meta", model, mode: "live" };
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2048,
+      stream: true,
+      system: buildSystemPrompt(employee, config),
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    yield {
+      type: "trace",
+      trace: {
+        id: traceId(),
+        type: "thought",
+        label: "Anthropic unavailable",
+        detail: "Falling back to the demo engine",
+        status: "done",
+      },
+    };
+    yield* streamLocal(employee, messages, config);
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const data = trimmed.slice(5).trim();
+      if (!data || data === "[DONE]") continue;
+      try {
+        const payload = JSON.parse(data);
+        if (payload.type === "content_block_delta" && payload.delta?.type === "text_delta") {
+          const delta: string = payload.delta.text ?? "";
+          if (delta) {
+            full += delta;
+            yield { type: "delta", text: delta };
+          }
+        }
+      } catch {
+        // Ignore malformed keep-alive frames.
+      }
+    }
+  }
+
+  yield {
+    type: "done",
+    usage: { tokens: estimateTokens(full), latencyMs: Date.now() - startedAt },
+  };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Runtime                                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -957,7 +1046,9 @@ export async function* runEmployee({
   config,
 }: EngineInput): AsyncGenerator<EngineEvent> {
   try {
-    if (process.env.OPENAI_API_KEY) {
+    if (process.env.ANTHROPIC_API_KEY) {
+      yield* streamAnthropic(employee, messages, config);
+    } else if (process.env.OPENAI_API_KEY) {
       yield* streamProvider(employee, messages, config);
     } else {
       yield* streamLocal(employee, messages, config);
