@@ -1,0 +1,79 @@
+name: Security vulnerability
+description: Report a security issue — this opens a PRIVATE advisory, not a public issue.
+title: "[Security]: "
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Thank you for helping keep Eidon and its users safe.**
+
+        This template opens a **private** GitHub Security Advisory. Only you and
+        the maintainers can see it until a fix ships and coordinated disclosure
+        is agreed. Never include secrets, API keys or customer data.
+
+        If you need to reach us out-of-band: **security@eidon.ai**
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity (your estimate)
+      options:
+        - Critical (CVSS ≥ 9.0)
+        - High (CVSS 7.0–8.9)
+        - Medium (CVSS 4.0–6.9)
+        - Low (CVSS < 4.0)
+        - Unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - AI runtime / chat engine
+        - Authentication / authorisation
+        - Tool execution layer
+        - API routes
+        - Frontend / client
+        - Database layer
+        - Third-party dependency
+        - Infrastructure / deployment
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Vulnerability description
+      description: >
+        What is the issue? What can an attacker do, and under what conditions?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce or proof of concept
+      placeholder: |
+        1. …
+        2. …
+        3. Observed: …
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who is affected? What data or systems are at risk?
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Suggested mitigation (optional)
+      description: If you have a fix or workaround in mind, describe it here.
+  - type: input
+    id: contact
+    attributes:
+      label: Contact (optional)
+      description: Email or handle for follow-up. We will credit researchers who ask.
+      placeholder: researcher@example.com

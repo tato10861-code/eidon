@@ -1,0 +1,54 @@
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "*.config.*"
+          - ".husky/**"
+          - ".eslintrc*"
+          - "eslint.config.*"
+          - "commitlint.config.*"
+          - ".prettierrc*"
+          - ".editorconfig"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "package-lock.json"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "app/**"
+          - "components/**"
+          - "app/globals.css"
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "lib/**"
+          - "app/api/**"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+          - "e2e/**"
+          - "**/*.test.ts"
+          - "**/*.test.tsx"
+          - "**/*.spec.ts"
+          - "vitest.config.*"
+          - "playwright.config.*"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "docs/**"
+
+infrastructure:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "neon/**"
+          - "supabase/**"
+          - "vercel.json"

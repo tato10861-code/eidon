@@ -2,6 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "github": {
-    "silent": true
-  }
+    "silent": false,
+    "autoJobCancelation": true
+  },
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "cleanUrls": true,
+  "trailingSlash": false
 }

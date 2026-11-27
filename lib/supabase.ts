@@ -1,5 +1,6 @@
 // Optional Supabase client. Returns null when env vars are missing, so the
 // app keeps working in demo mode without a database.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type SupabaseClient = any;
 
 let cached: SupabaseClient | null | undefined;

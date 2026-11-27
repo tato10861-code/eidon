@@ -73,6 +73,7 @@ export async function POST(request: Request) {
         values (${name}, ${slug}, ${body.plan ?? "starter"})
         returning *
       `;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return NextResponse.json({ provider: "neon", workspace: (rows as any)[0] }, { status: 201 });
     } catch (error) {
       return NextResponse.json({ error: String(error) }, { status: 500 });
