@@ -952,20 +952,93 @@ async function* streamLocal(
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/* Multi-provider resolution (OpenAI-compatible)                               */
+/* -------------------------------------------------------------------------- */
+
+interface ProviderConfig {
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  extraHeaders?: Record<string, string>;
+}
+
+function resolveProvider(): ProviderConfig | null {
+  const e = process.env;
+
+  // OpenRouter — 100+ models via one key; best for multi-model support
+  if (e.OPENROUTER_API_KEY)
+    return {
+      name: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: e.OPENROUTER_API_KEY,
+      model: e.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4-5",
+      extraHeaders: { "HTTP-Referer": "https://eidon.ai", "X-Title": "Eidon" },
+    };
+
+  // Google Gemini — via OpenAI-compatible endpoint
+  if (e.GEMINI_API_KEY ?? e.GOOGLE_API_KEY)
+    return {
+      name: "gemini",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      apiKey: (e.GEMINI_API_KEY ?? e.GOOGLE_API_KEY) as string,
+      model: e.GEMINI_MODEL ?? "gemini-2.0-flash",
+    };
+
+  // Cohere — command-r family, strong for Arabic
+  if (e.COHERE_API_KEY)
+    return {
+      name: "cohere",
+      baseUrl: "https://api.cohere.com/compatibility/v1",
+      apiKey: e.COHERE_API_KEY,
+      model: e.COHERE_MODEL ?? "command-r-plus",
+    };
+
+  // xAI Grok
+  if (e.XAI_API_KEY)
+    return {
+      name: "xai",
+      baseUrl: "https://api.x.ai/v1",
+      apiKey: e.XAI_API_KEY,
+      model: e.XAI_MODEL ?? "grok-3-mini",
+    };
+
+  // AI71 — Falcon models (UAE / MENA)
+  if (e.AI71_API_KEY)
+    return {
+      name: "ai71",
+      baseUrl: "https://api.ai71.ai/v1",
+      apiKey: e.AI71_API_KEY,
+      model: e.AI71_MODEL ?? "tiiuae/falcon-180b-chat",
+    };
+
+  // OpenAI or any OpenAI-compatible endpoint (Groq, Together, Ollama, Azure…)
+  if (e.OPENAI_API_KEY)
+    return {
+      name: "openai",
+      baseUrl: (e.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, ""),
+      apiKey: e.OPENAI_API_KEY,
+      model: e.OPENAI_MODEL ?? "gpt-4.1-mini",
+    };
+
+  return null;
+}
+
 async function* streamProvider(
   employee: EmployeeTemplate,
   messages: EngineInput["messages"],
   config?: Partial<EmployeeConfig>,
 ): AsyncGenerator<EngineEvent> {
   const startedAt = Date.now();
-  const apiKey = process.env.OPENAI_API_KEY;
-  const baseUrl = (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
-  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  const provider = resolveProvider();
 
-  if (!apiKey) {
+  if (!provider) {
     yield* streamLocal(employee, messages, config);
     return;
   }
+
+  const { name: _name, baseUrl, apiKey, model, extraHeaders } = provider;
 
   yield { type: "meta", model, mode: "live" };
 
@@ -974,6 +1047,7 @@ async function* streamProvider(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
+      ...extraHeaders,
     },
     body: JSON.stringify({
       model,
@@ -1048,10 +1122,10 @@ export async function* runEmployee({
   try {
     if (process.env.ANTHROPIC_API_KEY) {
       yield* streamAnthropic(employee, messages, config);
-    } else if (process.env.OPENAI_API_KEY) {
-      yield* streamProvider(employee, messages, config);
     } else {
-      yield* streamLocal(employee, messages, config);
+      // resolveProvider() inside streamProvider picks the best available key,
+      // or falls back to streamLocal when none are configured.
+      yield* streamProvider(employee, messages, config);
     }
   } catch {
     yield* streamLocal(employee, messages, config);
