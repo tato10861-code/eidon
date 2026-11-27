@@ -284,6 +284,20 @@ README reflect the latest production and preview status and update automatically
 
 Production URL: https://eidon-two.vercel.app
 
+## Production checklist
+
+Before going live with real customers:
+
+- [ ] Set `NEXT_PUBLIC_SITE_URL` to your production domain.
+- [ ] Add Supabase or Neon env vars and apply the schema (`supabase/schema.sql` / `neon/schema.sql`).
+- [ ] Add an LLM key (`OPENAI_API_KEY` + `OPENAI_BASE_URL`) — Groq free tier works.
+- [ ] Configure OAuth client IDs/secrets for the tools you need.
+- [ ] Replace illustrative dashboard/testimonial/status data with real data.
+- [ ] Run `npm run verify` (typecheck + tests + build) in CI.
+- [ ] Enable GitHub Deployments in Vercel (Settings → Git).
+- [ ] Resolve GitHub billing so Actions run.
+- [ ] Add your domain in Vercel (Settings → Domains).
+
 ## Demo content
 
 The dashboard figures, live-activity feed, testimonials and status-page uptime numbers
