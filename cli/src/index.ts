@@ -32,8 +32,23 @@ function getApiKey(opts: { key?: string }): string {
   return key;
 }
 
+function validateUrl(raw: string, label: string): string {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "https:" && u.protocol !== "http:") {
+      console.error(`Error: ${label} must use http or https`);
+      process.exit(1);
+    }
+    return u.origin;
+  } catch {
+    console.error(`Error: ${label} is not a valid URL`);
+    process.exit(1);
+  }
+}
+
 function getBaseUrl(opts: { url?: string }): string {
-  return opts.url ?? process.env.EIDON_BASE_URL ?? loadConfig().baseUrl ?? "https://eidon.ai";
+  const raw = opts.url ?? process.env.EIDON_BASE_URL ?? loadConfig().baseUrl ?? "https://eidon.ai";
+  return validateUrl(raw, "Base URL");
 }
 
 const program = new Command();
@@ -189,10 +204,11 @@ program
         const opts = program.opts<{ url?: string; key?: string }>();
         const key = getApiKey(opts);
         const baseUrl = getBaseUrl(opts);
+        const webhookUrl = validateUrl(cmdOpts.url, "Webhook URL");
         const res = await fetch(`${baseUrl}/api/webhooks`, {
           method: "POST",
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ url: cmdOpts.url, events: cmdOpts.events.split(",") }),
+          body: JSON.stringify({ url: webhookUrl, events: cmdOpts.events.split(",") }),
         });
         const data = await res.json();
         console.log(JSON.stringify(data, null, 2));
