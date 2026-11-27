@@ -31,8 +31,8 @@ jobs:
           environment: ${{ env.IS_PROD == 'true' && 'production' || 'preview' }}
           environment-url: >-
             ${{ env.IS_PROD == 'true'
-              && 'https://eidon-two.vercel.app'
-              || format('https://eidon-two-git-{0}-tato10861-code.vercel.app',
+              && 'https://eidon-ta-to.vercel.app'
+              || format('https://eidon-git-{0}-ta-to.vercel.app',
                         steps.slug.outputs.value) }}
           description: >-
             ${{ env.IS_PROD == 'true'
@@ -47,8 +47,8 @@ jobs:
           state: success
           environment-url: >-
             ${{ env.IS_PROD == 'true'
-              && 'https://eidon-two.vercel.app'
-              || format('https://eidon-two-git-{0}-tato10861-code.vercel.app',
+              && 'https://eidon-ta-to.vercel.app'
+              || format('https://eidon-git-{0}-ta-to.vercel.app',
                         steps.slug.outputs.value) }}
           description: >-
             ${{ env.IS_PROD == 'true'
