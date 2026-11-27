@@ -65,6 +65,7 @@ export async function POST(request: Request) {
         returning *
       `;
       return NextResponse.json(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { provider: "neon", conversation: (rows as any)[0] },
         { status: 201 },
       );
