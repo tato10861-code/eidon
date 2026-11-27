@@ -6,6 +6,8 @@ reason, use your tools and finish real work.
 [![CI](https://github.com/tato10861-code/eidon/actions/workflows/ci.yml/badge.svg)](https://github.com/tato10861-code/eidon/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/tato10861-code/eidon/actions/workflows/codeql.yml/badge.svg)](https://github.com/tato10861-code/eidon/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/tato10861-code/eidon?color=cbff5a)](https://github.com/tato10861-code/eidon/releases)
+[![Production deploy](https://img.shields.io/github/deployments/tato10861-code/eidon/production?label=vercel%20prod)](https://eidon-two.vercel.app)
+[![Preview deploy](https://img.shields.io/github/deployments/tato10861-code/eidon/preview?label=vercel%20preview)](https://github.com/tato10861-code/eidon/deployments)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript)](https://www.typescriptlang.org)
