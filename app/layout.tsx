@@ -3,6 +3,7 @@ import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
 import { localeMeta } from "@/lib/i18n/config";
 import { siteUrl } from "@/lib/utils";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -102,6 +103,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <noscript>
           <style>{`.reveal{opacity:1 !important;transform:none !important}`}</style>
         </noscript>
+
+        <Analytics />
       </body>
     </html>
   );
