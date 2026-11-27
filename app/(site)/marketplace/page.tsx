@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { ArrowUpRight, Boxes, Sparkles, Users } from "lucide-react";
+import { ArrowUpRight, Sparkles, Users } from "lucide-react";
 import { Reveal } from "@/components/reveal";
 import { Button } from "@/components/ui/button";
 import { Eyebrow, SectionHeading } from "@/components/ui/badge";
+import { marketplaceTemplates } from "@/lib/marketplace";
 
 export const metadata: Metadata = {
   title: "Marketplace",
@@ -10,15 +11,6 @@ export const metadata: Metadata = {
     "The Eidon marketplace: community-built AI employees, templates and integrations. Coming soon.",
   alternates: { canonical: "/marketplace" },
 };
-
-const categories = [
-  { name: "Sales & revenue", count: "Coming soon" },
-  { name: "Data & analytics", count: "Coming soon" },
-  { name: "Support & success", count: "Coming soon" },
-  { name: "Finance & legal", count: "Coming soon" },
-  { name: "Engineering & ops", count: "Coming soon" },
-  { name: "Marketing & growth", count: "Coming soon" },
-];
 
 export default function MarketplacePage() {
   return (
@@ -45,17 +37,50 @@ export default function MarketplacePage() {
         </div>
       </Reveal>
 
-      <section className="mt-12 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {categories.map((category) => (
+      <section className="mt-12 grid gap-3 md:grid-cols-2">
+        {marketplaceTemplates.map((template) => (
           <div
-            key={category.name}
+            key={template.id}
             className="rounded-[22px] border border-white/[0.08] bg-[#090c12]/70 p-5"
           >
-            <span className="grid size-9 place-items-center rounded-xl border border-lime/20 bg-lime/[0.06] text-lime">
-              <Boxes className="size-4" aria-hidden="true" />
-            </span>
-            <h2 className="mt-4 text-[13.5px] font-semibold text-snow">{category.name}</h2>
-            <p className="mt-1.5 font-mono text-[10px] text-fog/55">{category.count}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span
+                  className="grid size-10 place-items-center rounded-xl border border-white/10 text-[12px] font-semibold text-snow"
+                  style={{ backgroundColor: `${template.accent}1a`, color: template.accent }}
+                >
+                  {template.initials}
+                </span>
+                <div>
+                  <h2 className="text-[13.5px] font-semibold text-snow">{template.name}</h2>
+                  <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-fog/55">
+                    {template.title}
+                  </p>
+                </div>
+              </div>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[9px] text-fog/60">
+                {template.installs} installs
+              </span>
+            </div>
+            <p className="mt-3 text-[12px] leading-relaxed text-fog">{template.description}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {template.skills.map((skill) => (
+                <span
+                  key={skill}
+                  className="rounded-md border border-white/[0.07] bg-white/[0.03] px-1.5 py-1 text-[10px] text-mist/80"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3">
+              <span className="font-mono text-[9px] text-fog/50">
+                by {template.author} · ★ {template.rating}
+              </span>
+              <Button href="/studio" variant="secondary" size="sm">
+                Use template
+              </Button>
+            </div>
           </div>
         ))}
       </section>
