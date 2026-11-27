@@ -9,7 +9,7 @@
  */
 
 import type { NextRequest } from "next/server";
-import { generateApiKey, hashApiKey, type ApiKey, type ApiKeyScope } from "@/lib/api-keys";
+import { generateApiKey, type ApiKey, type ApiKeyScope } from "@/lib/api-keys";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
