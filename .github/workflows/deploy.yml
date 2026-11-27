@@ -3,6 +3,8 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -10,7 +12,7 @@ permissions:
 
 jobs:
   record-deployment:
-    name: Record production deployment
+    name: Record deployment
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -19,9 +21,9 @@ jobs:
         id: deployment
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          environment: production
-          environment-url: https://eidon-two.vercel.app
-          description: "Vercel production deploy triggered by push"
+          environment: ${{ github.event_name == 'push' && 'production' || 'preview' }}
+          environment-url: ${{ github.event_name == 'push' && 'https://eidon-two.vercel.app' || format('https://eidon-two-git-{0}-tato10861-code.vercel.app', github.head_ref) }}
+          description: "${{ github.event_name == 'push' && 'Vercel production deploy' || 'Vercel preview deploy' }}"
 
       - name: Mark deployment successful
         uses: chrnorm/deployment-status@v2
@@ -29,5 +31,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           deployment-id: ${{ steps.deployment.outputs.deployment_id }}
           state: success
-          environment-url: https://eidon-two.vercel.app
-          description: "Vercel production deployment"
+          environment-url: ${{ github.event_name == 'push' && 'https://eidon-two.vercel.app' || format('https://eidon-two-git-{0}-tato10861-code.vercel.app', github.head_ref) }}
+          description: "${{ github.event_name == 'push' && 'Vercel production deployment' || 'Vercel preview deployment' }}"
