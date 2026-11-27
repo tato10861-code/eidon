@@ -7,44 +7,168 @@ on:
 
 permissions:
   contents: write
+  packages: write
+  id-token: write
 
 jobs:
-  release:
-    name: Publish release
+  # ── 1. Verify the build is green before creating anything ─────────────────
+  build-verify:
+    name: Build verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22"
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx vitest run
 
       - name: Build
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+          DOCKER_BUILD: "1"
 
-      - name: Create GitHub release
+  # ── 2. Publish Node.js SDK to npm ─────────────────────────────────────────
+  publish-node-sdk:
+    name: Publish Node.js SDK
+    needs: build-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sdk/node
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm install
+
+      - name: Build SDK
+        run: npx tsup
+
+      - name: Publish (dry-run without NPM_TOKEN)
+        if: ${{ env.NODE_AUTH_TOKEN == '' }}
+        run: npm publish --dry-run --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        if: ${{ env.NODE_AUTH_TOKEN != '' }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── 3. Publish CLI to npm ─────────────────────────────────────────────────
+  publish-cli:
+    name: Publish CLI
+    needs: build-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm install
+
+      - name: Build CLI
+        run: npx tsup
+
+      - name: Publish (dry-run without NPM_TOKEN)
+        if: ${{ env.NODE_AUTH_TOKEN == '' }}
+        run: npm publish --dry-run --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        if: ${{ env.NODE_AUTH_TOKEN != '' }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── 4. Publish Python SDK to PyPI ─────────────────────────────────────────
+  publish-python-sdk:
+    name: Publish Python SDK
+    needs: build-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install hatch
+
+      - name: Build wheel
+        run: hatch build
+
+      - name: Publish to PyPI (dry-run without PYPI_TOKEN)
+        if: ${{ env.HATCH_INDEX_AUTH == '' }}
+        run: hatch publish --dry-run 2>/dev/null || hatch build --show
+        env:
+          HATCH_INDEX_AUTH: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Publish to PyPI
+        if: ${{ env.HATCH_INDEX_AUTH != '' }}
+        run: hatch publish
+        env:
+          HATCH_INDEX_USER: __token__
+          HATCH_INDEX_AUTH: ${{ secrets.PYPI_TOKEN }}
+
+  # ── 5. Create GitHub Release ───────────────────────────────────────────────
+  github-release:
+    name: GitHub Release
+    needs: [publish-node-sdk, publish-cli, publish-python-sdk]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION_NO_V="${VERSION#v}"
+          # Extract the section for this version from CHANGELOG.md
+          BODY=$(awk "/^## \[${VERSION_NO_V}\]/,/^## \[/" CHANGELOG.md \
+            | head -n -1 \
+            | sed '/^---$/d')
+          # Write to file to avoid shell quoting issues
+          echo "$BODY" > /tmp/release_notes.md
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          name: Eidon ${{ github.ref_name }}
-          body: |
-            ## Eidon ${{ github.ref_name }}
-
-            Production build verified on Node 22.
-
-            ### Deploy
-            The `main` branch is continuously deployed to Vercel.
-            Tagged releases are immutable snapshots of the platform.
+          name: "Eidon ${{ github.ref_name }}"
+          body_path: /tmp/release_notes.md
+          generate_release_notes: false
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          token: ${{ secrets.GITHUB_TOKEN }}
