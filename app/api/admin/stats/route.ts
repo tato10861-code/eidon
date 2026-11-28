@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getNeon } from "@/lib/neon";
-import { getUsageStats } from "@/lib/usage";
+import { getGlobalStats } from "@/lib/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const stats = getUsageStats();
+  const stats = getGlobalStats();
   const neon = getNeon();
 
   let dbStats: Record<string, unknown> = {};
@@ -25,15 +25,15 @@ export async function GET(request: NextRequest) {
     try {
       type CountRow = { count: string };
       const [workspaces, employees, conversations, messages] = await Promise.all([
-        neon`SELECT count(*) FROM workspaces` as Promise<CountRow[]>,
-        neon`SELECT count(*) FROM employees` as Promise<CountRow[]>,
-        neon`SELECT count(*) FROM conversations` as Promise<CountRow[]>,
-        neon`SELECT count(*) FROM messages` as Promise<CountRow[]>,
+        neon`SELECT count(*) FROM workspaces` as unknown as Promise<CountRow[]>,
+        neon`SELECT count(*) FROM employees` as unknown as Promise<CountRow[]>,
+        neon`SELECT count(*) FROM conversations` as unknown as Promise<CountRow[]>,
+        neon`SELECT count(*) FROM messages` as unknown as Promise<CountRow[]>,
       ]);
 
       type PlanRow = { plan: string; count: string };
       const planDistribution =
-        (await neon`SELECT plan, count(*) as count FROM workspaces GROUP BY plan`) as PlanRow[];
+        (await neon`SELECT plan, count(*) as count FROM workspaces GROUP BY plan`) as unknown as PlanRow[];
 
       dbStats = {
         workspaces: parseInt(workspaces[0]?.count ?? "0"),

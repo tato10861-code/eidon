@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
       FROM workspaces
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
-    ` as Promise<Row[]>,
-    neon`SELECT count(*) FROM workspaces` as Promise<CountRow[]>,
+    ` as unknown as Promise<Row[]>,
+    neon`SELECT count(*) FROM workspaces` as unknown as Promise<CountRow[]>,
   ]);
 
   const total = parseInt(totalRows[0]?.count ?? "0");

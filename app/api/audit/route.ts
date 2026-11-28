@@ -39,19 +39,19 @@ export async function GET(request: NextRequest) {
           WHERE workspace_id = ${workspaceId} AND action = ${action}
           ORDER BY created_at DESC
           LIMIT ${limit} OFFSET ${offset}
-        ` as Promise<Row[]>)
+        ` as unknown as Promise<Row[]>)
       : (neon`
           SELECT id, actor, action, target, payload, created_at
           FROM audit_log
           WHERE workspace_id = ${workspaceId}
           ORDER BY created_at DESC
           LIMIT ${limit} OFFSET ${offset}
-        ` as Promise<Row[]>),
+        ` as unknown as Promise<Row[]>),
     action
-      ? (neon`SELECT count(*) FROM audit_log WHERE workspace_id = ${workspaceId} AND action = ${action}` as Promise<
+      ? (neon`SELECT count(*) FROM audit_log WHERE workspace_id = ${workspaceId} AND action = ${action}` as unknown as Promise<
           CountRow[]
         >)
-      : (neon`SELECT count(*) FROM audit_log WHERE workspace_id = ${workspaceId}` as Promise<
+      : (neon`SELECT count(*) FROM audit_log WHERE workspace_id = ${workspaceId}` as unknown as Promise<
           CountRow[]
         >),
   ]);

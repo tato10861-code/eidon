@@ -31,7 +31,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const rows = await neon`
+    type WsRow = {
+      subscription_status: string | null;
+      billing_period_end: string | null;
+      seats: number | null;
+      stripe_subscription_id: string | null;
+    };
+    const rows = (await neon`
       SELECT
         subscription_status,
         billing_period_end,
@@ -40,7 +46,7 @@ export async function GET(request: Request) {
       FROM workspaces
       WHERE id = ${workspaceId}
       LIMIT 1
-    `;
+    `) as unknown as WsRow[];
     if (!rows.length) {
       return Response.json({ error: "Workspace not found" }, { status: 404 });
     }
@@ -55,12 +61,12 @@ export async function GET(request: Request) {
     // Count conversations this month
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const usageRows = await neon`
+    const usageRows = (await neon`
       SELECT COUNT(*)::int AS n
       FROM conversations
       WHERE workspace_id = ${workspaceId}
         AND created_at >= ${monthStart}
-    `;
+    `) as unknown as { n: number }[];
 
     return Response.json({
       plan,
