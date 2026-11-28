@@ -8,7 +8,7 @@ This runbook is for a controlled SaaS or private pilot deployment. It is not a p
 
 1. Confirm the repository SHA, Node version from `.nvmrc`, lockfile, and clean working tree.
 2. Configure secrets outside Git. At minimum, production authentication/database settings must be present. Stripe requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the configured Scale/Enterprise price IDs. Approval-protected tools require `EIDON_APPROVAL_SECRET`.
-3. Apply the complete target database schema. For Supabase, confirm the `record_usage` RPC exists and is executable only by the server role. Confirm billing events, subscriptions, usage events, RLS, and indexes exist.
+3. Apply the complete target database schema. For Supabase, confirm the `record_usage` RPC exists and is executable only by the server role. Confirm billing events, subscriptions, usage events, RLS, and indexes exist. Run `npm run verify:schema` before applying SQL. The non-destructive enterprise operations migration is `supabase/migrations/20261128_enterprise_operations.sql` or `neon/migrations/20261128_enterprise_operations.sql`; apply it to approved staging first.
 4. Set `NEXT_PUBLIC_SITE_URL` to the actual customer-facing origin. Never use a preview or stale domain in production configuration.
 5. Confirm the model/provider endpoint, spending limits, retention policy, webhook egress policy, and support contact in the order form.
 
@@ -23,6 +23,7 @@ npm run lint
 npm test
 npm run build
 npm run format:check
+npm run verify:schema
 ```
 
 Record the commit SHA, test count, build result, lint warning count, and the target database migration revision. A successful local build is not evidence that a production deployment is live.

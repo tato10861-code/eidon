@@ -61,3 +61,9 @@ compliance language. OAuth provider revocation is implemented for GitHub, Slack,
 and runs before local credential deletion; a failed provider call retains the encrypted credential.
 The newest commit must not be described as live in Production until a READY deployment for its SHA is
 confirmed.
+
+The repository now also contains non-destructive enterprise-operations migrations for append-only
+deletion requests and operational alerts, a static `npm run verify:schema` check, and a staging
+verification protocol covering RLS, concurrent usage reservations, restore evidence, and alert
+acknowledgement. These artifacts are ready for an approved staging database but are not evidence that
+the migrations or restore tests have run against a real target.

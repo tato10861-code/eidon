@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getNeon } from "@/lib/neon";
 import { getSupabase } from "@/lib/supabase";
+import { recordOperationalAlert } from "@/lib/operational-alerts";
 
 const SENSITIVE = /token|secret|password|authorization|api[-_]?key/i;
 
@@ -51,7 +52,17 @@ export async function writeAudit(input: {
         values (${input.workspaceId}, ${input.actor}, ${input.actorType ?? "system"}, ${input.action}, ${input.target ?? null}, ${JSON.stringify(payload)}::jsonb, 1, ${input.requestId ?? crypto.randomUUID()})
       `;
     }
-  } catch {
-    // Audit must never turn a customer request into a 500; operational alerts cover DB failures.
+  } catch (error) {
+    // Audit must never turn a customer request into a 500; record a redacted operator signal.
+    await recordOperationalAlert({
+      severity: "critical",
+      source: "audit",
+      code: "audit_write_failed",
+      message: "Audit log persistence failed.",
+      context: {
+        workspaceId: input.workspaceId,
+        error: error instanceof Error ? error.message : "unknown",
+      },
+    });
   }
 }
