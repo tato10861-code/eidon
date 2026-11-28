@@ -58,6 +58,14 @@ create table if not exists usage_monthly (
   primary key (workspace_id, period)
 );
 
+create table if not exists usage_events (
+  id text primary key,
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  metric text not null,
+  amount bigint not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists billing_subscriptions (
   workspace_id uuid primary key references workspaces(id) on delete cascade,
   provider text not null default 'stripe',
@@ -164,6 +172,7 @@ create table if not exists webhook_deliveries (
 create index if not exists idx_workspace_memberships_user on workspace_memberships(user_id);
 create index if not exists idx_integration_credentials_workspace on integration_credentials(workspace_id);
 create index if not exists idx_api_keys_workspace on api_keys(workspace_id);
+create index if not exists idx_usage_events_workspace on usage_events(workspace_id, created_at);
 create index if not exists idx_approval_tokens_workspace on approval_tokens(workspace_id);
 create index if not exists idx_approval_tokens_expiry on approval_tokens(expires_at);
 create index if not exists idx_employees_workspace on employees(workspace_id);

@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
 
   const employee = resolveEmployee(body.employeeId ?? "ava", body.config);
   const workspaceId = body.workspaceId ?? "demo";
+  const usageEventId = request.headers.get("idempotency-key") ?? crypto.randomUUID();
   try {
     await authorizeWorkspace(request, workspaceId, "chat:write");
   } catch (error) {
@@ -118,8 +119,15 @@ export async function POST(request: NextRequest) {
 
         recordChat(workspaceId, totalTokens, employee.id);
         try {
-          await persistUsage(workspaceId, "conversation_turns", 1, employee.id);
-          if (totalTokens > 0) await persistUsage(workspaceId, "chat_tokens", totalTokens);
+          await persistUsage(workspaceId, "conversation_turns", 1, employee.id, usageEventId);
+          if (totalTokens > 0)
+            await persistUsage(
+              workspaceId,
+              "chat_tokens",
+              totalTokens,
+              undefined,
+              `${usageEventId}:tokens`,
+            );
         } catch {
           // The in-memory counter remains available if the billing ledger is unavailable.
         }

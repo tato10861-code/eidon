@@ -114,10 +114,21 @@ export async function persistUsage(
   metric: "api_calls" | "chat_tokens" | "conversation_turns" | "export_jobs",
   amount: number,
   employeeId?: string,
+  eventId?: string,
 ) {
   const { getSupabase } = await import("@/lib/supabase");
   const supabase = await getSupabase();
   if (supabase) {
+    if (eventId) {
+      const { error } = await supabase.from("usage_events").insert({
+        id: eventId,
+        workspace_id: workspaceId,
+        metric,
+        amount,
+      });
+      if (error?.code === "23505") return;
+      if (error) throw error;
+    }
     const { data } = await supabase
       .from("usage_monthly")
       .select("*")
@@ -142,6 +153,14 @@ export async function persistUsage(
   const { getNeon } = await import("@/lib/neon");
   const sql = getNeon();
   if (!sql) return;
+  if (eventId) {
+    try {
+      await sql`insert into usage_events (id, workspace_id, metric, amount) values (${eventId}, ${workspaceId}, ${metric}, ${amount})`;
+    } catch (error) {
+      if (String(error).includes("duplicate key")) return;
+      throw error;
+    }
+  }
   const employeeRuns = employeeId ? JSON.stringify({ [employeeId]: 1 }) : "{}";
   if (metric === "api_calls") {
     await sql`insert into usage_monthly (workspace_id, period, api_calls, employee_runs) values (${workspaceId}, ${currentMonth()}, ${amount}, ${employeeRuns}::jsonb) on conflict (workspace_id, period) do update set api_calls = usage_monthly.api_calls + ${amount}, updated_at = now()`;

@@ -59,6 +59,14 @@ create table if not exists public.usage_monthly (
   primary key (workspace_id, period)
 );
 
+create table if not exists public.usage_events (
+  id text primary key,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  metric text not null,
+  amount bigint not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.billing_subscriptions (
   workspace_id uuid primary key references public.workspaces(id) on delete cascade,
   provider text not null default 'stripe',
@@ -165,6 +173,7 @@ create table if not exists public.audit_log (
 create index if not exists idx_workspace_memberships_user on public.workspace_memberships(user_id);
 create index if not exists idx_integration_credentials_workspace on public.integration_credentials(workspace_id);
 create index if not exists idx_api_keys_workspace on public.api_keys(workspace_id);
+create index if not exists idx_usage_events_workspace on public.usage_events(workspace_id, created_at);
 create index if not exists idx_approval_tokens_workspace on public.approval_tokens(workspace_id);
 create index if not exists idx_approval_tokens_expiry on public.approval_tokens(expires_at);
 create index if not exists idx_webhooks_workspace on public.webhooks(workspace_id);
@@ -182,6 +191,7 @@ alter table public.workspace_memberships enable row level security;
 alter table public.integration_credentials enable row level security;
 alter table public.api_keys enable row level security;
 alter table public.usage_monthly enable row level security;
+alter table public.usage_events enable row level security;
 alter table public.billing_subscriptions enable row level security;
 alter table public.approval_tokens enable row level security;
 alter table public.webhooks enable row level security;
@@ -216,6 +226,7 @@ drop policy if exists "admins can manage memberships" on public.workspace_member
 drop policy if exists "members can access integration credentials" on public.integration_credentials;
 drop policy if exists "admins can access api keys" on public.api_keys;
 drop policy if exists "members can read usage" on public.usage_monthly;
+drop policy if exists "members can read usage events" on public.usage_events;
 drop policy if exists "admins can read billing" on public.billing_subscriptions;
 drop policy if exists "members can use approvals" on public.approval_tokens;
 drop policy if exists "admins can manage webhooks" on public.webhooks;
@@ -233,6 +244,8 @@ create policy "members can access integration credentials" on public.integration
 create policy "admins can access api keys" on public.api_keys
   for all using (public.is_workspace_member(workspace_id)) with check (public.is_workspace_member(workspace_id));
 create policy "members can read usage" on public.usage_monthly
+  for select using (public.is_workspace_member(workspace_id));
+create policy "members can read usage events" on public.usage_events
   for select using (public.is_workspace_member(workspace_id));
 create policy "admins can read billing" on public.billing_subscriptions
   for select using (public.is_workspace_member(workspace_id));

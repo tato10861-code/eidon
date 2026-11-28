@@ -17,6 +17,7 @@
  */
 
 import type { NextRequest } from "next/server";
+import crypto from "node:crypto";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSupabase } from "@/lib/supabase";
 import { getNeon } from "@/lib/neon";
@@ -97,7 +98,13 @@ export async function GET(request: NextRequest) {
 
   recordExport(workspaceId);
   try {
-    await persistUsage(workspaceId, "export_jobs", 1);
+    await persistUsage(
+      workspaceId,
+      "export_jobs",
+      1,
+      undefined,
+      request.headers.get("idempotency-key") ?? crypto.randomUUID(),
+    );
   } catch {
     // Keep the demo/export path available while an installation is being migrated.
   }
