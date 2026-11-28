@@ -7,6 +7,7 @@
   },
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)*.md' ':(exclude)docs/**' ':(exclude).github/**'",
   "cleanUrls": true,
   "trailingSlash": false
 }

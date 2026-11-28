@@ -302,6 +302,18 @@ Latest confirmed Production URL: https://eidon-ta-to.vercel.app
 The latest GitHub checkpoint is not considered live until Vercel reports a READY deployment for
 that exact commit SHA. See [release notes](docs/release-notes-2026-11-28.md) for the current deployment record.
 
+### Deployment budget (Vercel Hobby)
+
+The Hobby plan allows **100 deployments per team per 24 hours**. Exceeding it makes Vercel
+answer every new deployment with `Deployment rate limited — retry in 24 hours`, and the
+production alias keeps serving the last successful build. To avoid burning the budget:
+
+- Batch changes into one commit/push per feature instead of many small pushes.
+- Docs-only commits are skipped by the `ignoreCommand` in `vercel.json` (no deployment).
+- Keep preview branches to a minimum; each push to a branch is also a deployment.
+- If the limit is hit, stop pushing and redeploy once the 24-hour window resets, or
+  upgrade the team to Pro.
+
 ## Production checklist
 
 Before going live with real customers:
@@ -313,7 +325,8 @@ Before going live with real customers:
 - [ ] Replace illustrative dashboard/testimonial/status data with real data.
 - [ ] Run `npm run verify` (typecheck + tests + build) in CI.
 - [ ] Enable GitHub Deployments in Vercel (Settings → Git).
-- [ ] Resolve GitHub billing so Actions run.
+- [x] GitHub Actions enabled (CI, CodeQL, Deploy, Docker, Release Drafter run on every push).
+- [x] Vercel ↔ GitHub integration connected (commit statuses + deployment verification).
 - [ ] Add your domain in Vercel (Settings → Domains).
 
 ## Demo content
