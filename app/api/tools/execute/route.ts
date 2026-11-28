@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
+import { accessError, authorizeWorkspace, requiresAuthentication } from "@/lib/auth/authorization";
 import { consumeApprovalToken, issueApprovalToken, ApprovalDenied } from "@/lib/approvals";
 import { writeAudit } from "@/lib/audit";
+import { evaluateToolPolicy, isApprovalRequired } from "@/lib/tool-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,21 +38,53 @@ export async function POST(request: NextRequest) {
     return accessError(error);
   }
 
-  const needsApproval = APPROVAL_REQUIRED.has(body.action.toLowerCase());
+  const policy = evaluateToolPolicy(body.tool, body.action, body.params);
+  if (!policy.allowed) {
+    await writeAudit({
+      workspaceId: body.workspaceId,
+      actor: principal.subject,
+      action: "tool.rejected",
+      target: `${body.tool}:${body.action}`,
+      outcome: "rejected",
+      payload: { code: policy.code },
+    });
+    return NextResponse.json({ error: policy.reason, code: policy.code }, { status: 400 });
+  }
+
+  if (requiresAuthentication()) {
+    await writeAudit({
+      workspaceId: body.workspaceId,
+      actor: principal.subject,
+      action: "tool.unavailable",
+      target: `${policy.provider}:${policy.action}`,
+      outcome: "failed",
+      payload: { reason: "provider_execution_adapter_not_configured" },
+    });
+    return NextResponse.json(
+      {
+        error: "Provider execution adapter is not configured for this deployment.",
+        code: "not_implemented",
+      },
+      { status: 501 },
+    );
+  }
+
+  const needsApproval =
+    APPROVAL_REQUIRED.has(body.action.toLowerCase()) || isApprovalRequired(policy.action);
 
   if (needsApproval && !body.approvalToken) {
     const approval = await issueApprovalToken({
       workspaceId: body.workspaceId,
       actor: principal.subject,
-      tool: body.tool,
-      action: body.action,
+      tool: policy.provider,
+      action: policy.action,
       params: body.params,
     });
     await writeAudit({
       workspaceId: body.workspaceId,
       actor: principal.subject,
       action: "tool.approval_requested",
-      target: `${body.tool}:${body.action}`,
+      target: `${policy.provider}:${policy.action}`,
       outcome: "requested",
       payload: { params: body.params },
     });
@@ -74,8 +107,8 @@ export async function POST(request: NextRequest) {
         token: body.approvalToken!,
         workspaceId: body.workspaceId,
         actor: principal.subject,
-        tool: body.tool,
-        action: body.action,
+        tool: policy.provider,
+        action: policy.action,
         params: body.params,
       });
     } catch (error) {
@@ -84,7 +117,7 @@ export async function POST(request: NextRequest) {
           workspaceId: body.workspaceId,
           actor: principal.subject,
           action: "tool.approval_rejected",
-          target: `${body.tool}:${body.action}`,
+          target: `${policy.provider}:${policy.action}`,
           outcome: "rejected",
           payload: { code: error.code },
         });
@@ -98,7 +131,7 @@ export async function POST(request: NextRequest) {
     workspaceId: body.workspaceId,
     actor: principal.subject,
     action: "tool.executed",
-    target: `${body.tool}:${body.action}`,
+    target: `${policy.provider}:${policy.action}`,
     outcome: "executed",
     payload: { params: body.params },
   });

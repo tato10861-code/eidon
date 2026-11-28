@@ -9,6 +9,8 @@ import {
   createOAuthState,
   verifyOAuthState,
 } from "../lib/oauth";
+import { buildRevocationRequest } from "../lib/oauth-revocation";
+import { evaluateToolPolicy } from "../lib/tool-policy";
 
 describe("security hardening", () => {
   it("issues an approval token that can only be consumed once", async () => {
@@ -79,5 +81,35 @@ describe("security hardening", () => {
     expect(verifyOAuthState(state, "github", "other-workspace")).toBe(false);
     if (previous === undefined) delete process.env.EIDON_OAUTH_STATE_SECRET;
     else process.env.EIDON_OAUTH_STATE_SECRET = previous;
+  });
+
+  it("builds provider-specific OAuth revocation requests without exposing tokens in URLs", () => {
+    const previousId = process.env.GITHUB_CLIENT_ID;
+    const previousSecret = process.env.GITHUB_CLIENT_SECRET;
+    process.env.GITHUB_CLIENT_ID = "client-id";
+    process.env.GITHUB_CLIENT_SECRET = "client-secret";
+    const request = buildRevocationRequest("github", "access-token");
+    expect(request?.method).toBe("DELETE");
+    expect(request?.url).not.toContain("access-token");
+    expect(request?.body).toContain("access-token");
+    if (previousId === undefined) delete process.env.GITHUB_CLIENT_ID;
+    else process.env.GITHUB_CLIENT_ID = previousId;
+    if (previousSecret === undefined) delete process.env.GITHUB_CLIENT_SECRET;
+    else process.env.GITHUB_CLIENT_SECRET = previousSecret;
+  });
+
+  it("rejects tools and actions outside the provider allowlist", () => {
+    expect(evaluateToolPolicy("unknown", "read", {})).toMatchObject({
+      allowed: false,
+      code: "unknown_tool",
+    });
+    expect(evaluateToolPolicy("Slack", "admin.delete", {})).toMatchObject({
+      allowed: false,
+      code: "unknown_action",
+    });
+    expect(evaluateToolPolicy("Slack", "messages.send", {})).toMatchObject({
+      allowed: true,
+      provider: "slack",
+    });
   });
 });

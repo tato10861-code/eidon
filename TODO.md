@@ -53,8 +53,11 @@ Public README and enterprise copy now qualify unimplemented SSO/SCIM, private de
 and provider-backed tool execution claims.
 
 The remaining enterprise-readiness work is explicit: apply and concurrency-test the database
-migrations in the target environments, complete resource-to-workspace route coverage, implement
-provider-backed tool execution and provider-specific OAuth revocation, finish deletion/backup/
-observability controls, verify deployment for the latest commit, and obtain external legal review of
-the commercial license, DPA, SLA, and compliance language. The newest commit (`896bae2`) must not be
-described as live in Production until a READY deployment for its SHA is confirmed.
+migrations in the target environments, complete resource-to-workspace route coverage, enable
+provider-backed tool adapters (the allowlist now rejects unknown tools/actions and production returns
+501 rather than a fake demo result), finish deletion/backup/observability controls, verify deployment
+for the latest commit, and obtain external legal review of the commercial license, DPA, SLA, and
+compliance language. OAuth provider revocation is implemented for GitHub, Slack, Google, and HubSpot
+and runs before local credential deletion; a failed provider call retains the encrypted credential.
+The newest commit must not be described as live in Production until a READY deployment for its SHA is
+confirmed.
