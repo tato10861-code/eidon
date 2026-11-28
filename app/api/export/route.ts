@@ -22,6 +22,7 @@ import { getSupabase } from "@/lib/supabase";
 import { getNeon } from "@/lib/neon";
 import { recordExport } from "@/lib/usage";
 import { employees } from "@/lib/employees";
+import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,8 +69,17 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const workspaceId = url.searchParams.get("workspaceId") ?? "demo";
   const format = url.searchParams.get("format") ?? "jsonl";
-  const limit = parseInt(url.searchParams.get("limit") ?? "500", 10);
+  const limit = Math.min(
+    Math.max(parseInt(url.searchParams.get("limit") ?? "500", 10) || 1, 1),
+    500,
+  );
   const minQuality = parseFloat(url.searchParams.get("minQuality") ?? "4.0");
+
+  try {
+    await authorizeWorkspace(request, workspaceId, "export:read");
+  } catch (error) {
+    return accessError(error);
+  }
 
   const rl = rateLimit(`export:${workspaceId}`, 5, 60_000);
   if (!rl.ok) {

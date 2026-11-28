@@ -6,12 +6,19 @@
 import type { NextRequest } from "next/server";
 import { getUsageSummary } from "@/lib/usage";
 import { rateLimit } from "@/lib/rate-limit";
+import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const workspaceId = new URL(request.url).searchParams.get("workspaceId") ?? "demo";
+
+  try {
+    await authorizeWorkspace(request, workspaceId, "usage:read");
+  } catch (error) {
+    return accessError(error);
+  }
 
   const rl = rateLimit(`usage:${workspaceId}`, 60, 60_000);
   if (!rl.ok) {

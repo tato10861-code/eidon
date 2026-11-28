@@ -1,5 +1,6 @@
+import crypto from "node:crypto";
+
 // OAuth provider registry for live tool execution.
-// Demo mode (no credentials) returns mock tokens so the flow is exercisable.
 
 export interface OAuthProvider {
   id: string;
@@ -74,4 +75,48 @@ export function buildAuthorizeUrl(id: string, redirectUri: string, state: string
     state,
   });
   return `${p.authorizeUrl}?${params.toString()}`;
+}
+
+function stateSecret() {
+  return process.env.EIDON_OAUTH_STATE_SECRET ?? "development-only-oauth-state-secret";
+}
+
+export function createOAuthState(provider: string, workspaceId: string) {
+  const payload = Buffer.from(
+    JSON.stringify({
+      provider,
+      workspaceId,
+      exp: Date.now() + 10 * 60_000,
+      nonce: crypto.randomUUID(),
+    }),
+  ).toString("base64url");
+  const signature = crypto.createHmac("sha256", stateSecret()).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+export function verifyOAuthState(value: string | null, provider: string, workspaceId: string) {
+  if (!value) return false;
+  const [payload, signature] = value.split(".");
+  if (!payload || !signature) return false;
+  const expected = crypto.createHmac("sha256", stateSecret()).update(payload).digest("base64url");
+  if (
+    signature.length !== expected.length ||
+    !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
+  )
+    return false;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+      provider?: string;
+      workspaceId?: string;
+      exp?: number;
+    };
+    return (
+      data.provider === provider &&
+      data.workspaceId === workspaceId &&
+      typeof data.exp === "number" &&
+      data.exp > Date.now()
+    );
+  } catch {
+    return false;
+  }
 }

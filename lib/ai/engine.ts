@@ -1131,7 +1131,9 @@ export async function* runEmployee({
   config,
 }: EngineInput): AsyncGenerator<EngineEvent> {
   try {
-    if (process.env.ANTHROPIC_API_KEY) {
+    if (process.env.NODE_ENV === "test" && process.env.EIDON_TEST_LIVE_PROVIDER !== "true") {
+      yield* streamLocal(employee, messages, config);
+    } else if (process.env.ANTHROPIC_API_KEY) {
       yield* streamAnthropic(employee, messages, config);
     } else {
       // resolveProvider() inside streamProvider picks the best available key,

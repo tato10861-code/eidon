@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { getNeon } from "@/lib/neon";
 import crypto from "node:crypto";
+import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,16 +25,21 @@ interface WebhookBody {
 }
 
 export async function GET(request: NextRequest) {
-  const workspaceId = request.nextUrl.searchParams.get("workspaceId");
+  const workspaceId = request.nextUrl.searchParams.get("workspaceId")?.trim();
+  if (!workspaceId) return Response.json({ error: "workspaceId is required." }, { status: 400 });
+  try {
+    await authorizeWorkspace(request, workspaceId, "admin");
+  } catch (error) {
+    return accessError(error);
+  }
 
   const neon = getNeon();
   if (!neon) {
     return Response.json({ webhooks: [] });
   }
 
-  const rows = workspaceId
-    ? await neon`SELECT id, url, events, active, created_at FROM webhooks WHERE workspace_id = ${workspaceId} ORDER BY created_at DESC`
-    : await neon`SELECT id, url, events, active, created_at FROM webhooks ORDER BY created_at DESC LIMIT 100`;
+  const rows =
+    await neon`SELECT id, url, events, active, created_at FROM webhooks WHERE workspace_id = ${workspaceId} ORDER BY created_at DESC`;
 
   return Response.json({ webhooks: rows });
 }
@@ -53,13 +59,33 @@ export async function POST(request: NextRequest) {
   }
 
   const { url, events, secret } = body;
+  const workspaceId = request.nextUrl.searchParams.get("workspaceId")?.trim();
+  if (!workspaceId) return Response.json({ error: "workspaceId is required." }, { status: 400 });
+  try {
+    await authorizeWorkspace(request, workspaceId, "admin");
+  } catch (error) {
+    return accessError(error);
+  }
 
   if (!url || typeof url !== "string") {
     return Response.json({ error: "url is required." }, { status: 400 });
   }
 
   try {
-    new URL(url);
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    const blocked =
+      parsed.protocol !== "https:" ||
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal") ||
+      hostname === "169.254.169.254" ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+    if (blocked) throw new Error("private or non-HTTPS target");
   } catch {
     return Response.json({ error: "url must be a valid HTTPS URL." }, { status: 400 });
   }
@@ -78,8 +104,6 @@ export async function POST(request: NextRequest) {
 
   const id = `wh_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
   const signingSecret = secret ?? `whsec_${crypto.randomBytes(24).toString("base64url")}`;
-  const workspaceId = request.nextUrl.searchParams.get("workspaceId");
-
   const neon = getNeon();
   if (neon) {
     await neon`

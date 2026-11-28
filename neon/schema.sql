@@ -13,6 +13,26 @@ create table if not exists workspaces (
   created_at timestamptz not null default now()
 );
 
+create table if not exists workspace_memberships (
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  user_id uuid not null,
+  role text not null default 'member' check (role in ('owner','admin','member','viewer')),
+  created_at timestamptz not null default now(),
+  primary key (workspace_id, user_id)
+);
+
+create table if not exists integration_credentials (
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  provider text not null,
+  access_token_encrypted text not null,
+  refresh_token_encrypted text,
+  expires_at timestamptz,
+  scopes jsonb not null default '[]',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (workspace_id, provider)
+);
+
 create table if not exists employees (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid references workspaces(id) on delete cascade,
@@ -86,6 +106,8 @@ create table if not exists webhook_deliveries (
   created_at timestamptz not null default now()
 );
 
+create index if not exists idx_workspace_memberships_user on workspace_memberships(user_id);
+create index if not exists idx_integration_credentials_workspace on integration_credentials(workspace_id);
 create index if not exists idx_employees_workspace on employees(workspace_id);
 create index if not exists idx_conversations_workspace on conversations(workspace_id);
 create index if not exists idx_messages_conversation on messages(conversation_id);

@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getNeon } from "@/lib/neon";
+import { accessError, authenticateRequest } from "@/lib/auth/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  try {
+    await authenticateRequest(request);
+  } catch (error) {
+    return accessError(error);
+  }
   const supabase = await getSupabase();
   if (supabase) {
     const { data, error } = await supabase
@@ -40,7 +47,13 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  let principal;
+  try {
+    principal = await authenticateRequest(request);
+  } catch (error) {
+    return accessError(error);
+  }
   let body: { name?: string; slug?: string; plan?: string } = {};
   try {
     body = await request.json();
@@ -62,6 +75,13 @@ export async function POST(request: Request) {
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (principal.kind === "session" && data?.id) {
+      await supabase.from("workspace_memberships").insert({
+        workspace_id: data.id,
+        user_id: principal.subject,
+        role: "owner",
+      });
+    }
     return NextResponse.json({ provider: "supabase", workspace: data }, { status: 201 });
   }
 
@@ -73,6 +93,12 @@ export async function POST(request: Request) {
         values (${name}, ${slug}, ${body.plan ?? "starter"})
         returning *
       `;
+      if (principal.kind === "session" && (rows as { id?: string }[])[0]?.id) {
+        await sql`
+          insert into workspace_memberships (workspace_id, user_id, role)
+          values (${(rows as { id: string }[])[0].id}, ${principal.subject}, 'owner')
+        `;
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return NextResponse.json({ provider: "neon", workspace: (rows as any)[0] }, { status: 201 });
     } catch (error) {

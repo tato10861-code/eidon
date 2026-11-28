@@ -1,50 +1,59 @@
 import type { NextRequest } from "next/server";
 import { getNeon } from "@/lib/neon";
+import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
+type Params = { params: Promise<{ id: string }> };
 
-  if (!id || !id.startsWith("wh_")) {
-    return Response.json({ error: "Invalid webhook ID." }, { status: 400 });
-  }
-
+async function getOwnedWebhook(request: NextRequest, id: string) {
   const neon = getNeon();
-  if (!neon) {
-    return new Response(null, { status: 204 });
+  if (!neon) return { neon: null, workspaceId: "demo" };
+  const rows = (await neon`SELECT workspace_id FROM webhooks WHERE id = ${id} LIMIT 1`) as {
+    workspace_id: string;
+  }[];
+  if (!rows[0]?.workspace_id) return { neon, workspaceId: null };
+  try {
+    await authorizeWorkspace(request, rows[0].workspace_id, "admin");
+  } catch (error) {
+    return { neon, workspaceId: null, error };
   }
+  return { neon, workspaceId: rows[0].workspace_id };
+}
 
-  const rows = (await neon`DELETE FROM webhooks WHERE id = ${id} RETURNING id`) as { id: string }[];
-  if (!rows || rows.length === 0) {
-    return Response.json({ error: "Webhook not found." }, { status: 404 });
-  }
-
+export async function DELETE(request: NextRequest, { params }: Params) {
+  const { id } = await params;
+  if (!id || !id.startsWith("wh_"))
+    return Response.json({ error: "Invalid webhook ID." }, { status: 400 });
+  const owned = await getOwnedWebhook(request, id);
+  if (owned.error) return accessError(owned.error);
+  if (!owned.workspaceId) return Response.json({ error: "Webhook not found." }, { status: 404 });
+  if (!owned.neon) return new Response(null, { status: 204 });
+  const rows =
+    (await owned.neon`DELETE FROM webhooks WHERE id = ${id} AND workspace_id = ${owned.workspaceId} RETURNING id`) as {
+      id: string;
+    }[];
+  if (!rows.length) return Response.json({ error: "Webhook not found." }, { status: 404 });
   return new Response(null, { status: 204 });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: NextRequest, { params }: Params) {
   const { id } = await params;
-  const body = (await request.json()) as { active?: boolean };
-
-  const neon = getNeon();
-  if (!neon) {
-    return Response.json({ error: "Database not configured." }, { status: 503 });
-  }
-
-  if (typeof body.active === "boolean") {
-    const rows = (await neon`
-      UPDATE webhooks SET active = ${body.active} WHERE id = ${id} RETURNING id, url, events, active
-    `) as { id: string; url: string; events: string[]; active: boolean }[];
-    if (!rows || rows.length === 0) {
-      return Response.json({ error: "Webhook not found." }, { status: 404 });
-    }
-    return Response.json(rows[0]);
-  }
-
-  return Response.json({ error: "Nothing to update." }, { status: 400 });
+  if (!id || !id.startsWith("wh_"))
+    return Response.json({ error: "Invalid webhook ID." }, { status: 400 });
+  const body = (await request.json().catch(() => ({}))) as { active?: boolean };
+  const owned = await getOwnedWebhook(request, id);
+  if (owned.error) return accessError(owned.error);
+  if (!owned.workspaceId) return Response.json({ error: "Webhook not found." }, { status: 404 });
+  if (!owned.neon) return Response.json({ error: "Database not configured." }, { status: 503 });
+  if (typeof body.active !== "boolean")
+    return Response.json({ error: "Nothing to update." }, { status: 400 });
+  const rows = (await owned.neon`
+    UPDATE webhooks SET active = ${body.active}, updated_at = now()
+    WHERE id = ${id} AND workspace_id = ${owned.workspaceId}
+    RETURNING id, url, events, active
+  `) as { id: string; url: string; events: string[]; active: boolean }[];
+  if (!rows.length) return Response.json({ error: "Webhook not found." }, { status: 404 });
+  return Response.json(rows[0]);
 }

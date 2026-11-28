@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { getNeon } from "@/lib/neon";
 import { recordChat } from "@/lib/usage";
 import type { EmployeeConfig } from "@/lib/types";
+import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,6 +60,11 @@ export async function POST(request: NextRequest) {
 
   const employee = resolveEmployee(body.employeeId ?? "ava", body.config);
   const workspaceId = body.workspaceId ?? "demo";
+  try {
+    await authorizeWorkspace(request, workspaceId, "chat:write");
+  } catch (error) {
+    return accessError(error);
+  }
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({

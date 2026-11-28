@@ -11,6 +11,12 @@
 import type { NextRequest } from "next/server";
 import { generateApiKey, type ApiKey, type ApiKeyScope } from "@/lib/api-keys";
 import { rateLimit } from "@/lib/rate-limit";
+import {
+  accessError,
+  authorizeWorkspace,
+  registerDemoApiKey,
+  revokeDemoApiKey,
+} from "@/lib/auth/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +52,12 @@ export async function POST(request: NextRequest) {
     ? body.scopes
     : ["chat:write", "chat:read", "conversations:read", "employees:read"];
 
+  try {
+    await authorizeWorkspace(request, workspaceId, "admin");
+  } catch (error) {
+    return accessError(error);
+  }
+
   const { key, prefix, hash } = await generateApiKey(workspaceId);
 
   const record: ApiKey = {
@@ -61,6 +73,7 @@ export async function POST(request: NextRequest) {
     rateLimit: 1000,
   };
   keyStore.set(record.id, record);
+  registerDemoApiKey(record);
 
   return Response.json(
     {
@@ -80,6 +93,12 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const workspaceId = new URL(request.url).searchParams.get("workspaceId") ?? "demo";
 
+  try {
+    await authorizeWorkspace(request, workspaceId, "admin");
+  } catch (error) {
+    return accessError(error);
+  }
+
   const keys = getWorkspaceKeys(workspaceId).map((k) => ({
     id: k.id,
     name: k.name,
@@ -98,7 +117,16 @@ export async function DELETE(request: NextRequest) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json({ error: "Missing key id." }, { status: 400 });
 
+  const existing = keyStore.get(id);
+  if (!existing) return Response.json({ error: "Key not found." }, { status: 404 });
+  try {
+    await authorizeWorkspace(request, existing.workspaceId, "admin");
+  } catch (error) {
+    return accessError(error);
+  }
+
   const deleted = keyStore.delete(id);
+  revokeDemoApiKey(id);
   if (!deleted) return Response.json({ error: "Key not found." }, { status: 404 });
 
   return Response.json({ deleted: true, id });
