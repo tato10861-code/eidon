@@ -198,13 +198,33 @@ export async function persistUsage(
     }
   }
   const employeeRuns = employeeId ? JSON.stringify({ [employeeId]: 1 }) : "{}";
-  if (metric === "api_calls") {
-    await sql`insert into usage_monthly (workspace_id, period, api_calls, employee_runs) values (${workspaceId}, ${currentMonth()}, ${amount}, ${employeeRuns}::jsonb) on conflict (workspace_id, period) do update set api_calls = usage_monthly.api_calls + ${amount}, updated_at = now()`;
-  } else if (metric === "chat_tokens") {
-    await sql`insert into usage_monthly (workspace_id, period, chat_tokens, employee_runs) values (${workspaceId}, ${currentMonth()}, ${amount}, ${employeeRuns}::jsonb) on conflict (workspace_id, period) do update set chat_tokens = usage_monthly.chat_tokens + ${amount}, updated_at = now()`;
-  } else if (metric === "conversation_turns") {
-    await sql`insert into usage_monthly (workspace_id, period, conversation_turns, employee_runs) values (${workspaceId}, ${currentMonth()}, ${amount}, ${employeeRuns}::jsonb) on conflict (workspace_id, period) do update set conversation_turns = usage_monthly.conversation_turns + ${amount}, updated_at = now()`;
-  } else {
-    await sql`insert into usage_monthly (workspace_id, period, export_jobs, employee_runs) values (${workspaceId}, ${currentMonth()}, ${amount}, ${employeeRuns}::jsonb) on conflict (workspace_id, period) do update set export_jobs = usage_monthly.export_jobs + ${amount}, updated_at = now()`;
-  }
+  await sql`
+    insert into usage_monthly (
+      workspace_id, period, api_calls, chat_tokens, conversation_turns, export_jobs, employee_runs
+    )
+    values (
+      ${workspaceId},
+      ${currentMonth()},
+      case when ${metric} = 'api_calls' then ${amount}::bigint else 0 end,
+      case when ${metric} = 'chat_tokens' then ${amount}::bigint else 0 end,
+      case when ${metric} = 'conversation_turns' then ${amount}::bigint else 0 end,
+      case when ${metric} = 'export_jobs' then ${amount}::bigint else 0 end,
+      ${employeeRuns}::jsonb
+    )
+    on conflict (workspace_id, period) do update set
+      api_calls = usage_monthly.api_calls + case when ${metric} = 'api_calls' then ${amount}::bigint else 0 end,
+      chat_tokens = usage_monthly.chat_tokens + case when ${metric} = 'chat_tokens' then ${amount}::bigint else 0 end,
+      conversation_turns = usage_monthly.conversation_turns + case when ${metric} = 'conversation_turns' then ${amount}::bigint else 0 end,
+      export_jobs = usage_monthly.export_jobs + case when ${metric} = 'export_jobs' then ${amount}::bigint else 0 end,
+      employee_runs = case
+        when ${employeeId ?? null}::text is null then usage_monthly.employee_runs
+        else jsonb_set(
+          usage_monthly.employee_runs,
+          array[${employeeId ?? null}::text],
+          to_jsonb(coalesce((usage_monthly.employee_runs ->> ${employeeId ?? null}::text)::bigint, 0) + 1),
+          true
+        )
+      end,
+      updated_at = now()
+  `;
 }

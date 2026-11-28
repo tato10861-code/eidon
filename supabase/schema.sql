@@ -359,6 +359,9 @@ begin
   if p_amount <= 0 or p_metric not in ('api_calls', 'chat_tokens', 'conversation_turns', 'export_jobs') then
     raise exception 'invalid usage reservation';
   end if;
+  -- Serialize concurrent retries that carry the same event id so the
+  -- idempotency check below is authoritative (no duplicate-key 500s).
+  perform pg_advisory_xact_lock(hashtext(p_event_id)::bigint);
   if exists (select 1 from public.usage_events where id = p_event_id) then return true; end if;
   select case when s.status in ('active', 'trialing') then s.plan else w.plan end
     into plan_name
