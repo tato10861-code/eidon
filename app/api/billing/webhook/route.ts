@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       if ((existing as { processed?: boolean }[])[0]?.processed)
         return Response.json({ received: true, duplicate: true });
     }
-  } catch (error) {
+  } catch {
     return Response.json({ error: "Billing event could not be persisted." }, { status: 503 });
   }
 
