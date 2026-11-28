@@ -1,4 +1,4 @@
-# ── Build stage ────────────────────────────────────────────────────────────────
+# ── Build stage ──────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
 WORKDIR /app
@@ -11,7 +11,7 @@ ARG DOCKER_BUILD=1
 ENV DOCKER_BUILD=$DOCKER_BUILD
 RUN npm run build
 
-# ── Production stage ───────────────────────────────────────────────────────────
+# ── Production stage ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 
 WORKDIR /app
