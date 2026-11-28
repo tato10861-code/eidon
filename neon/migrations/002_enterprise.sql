@@ -147,3 +147,17 @@ create table if not exists integration_tokens (
 );
 
 create index if not exists idx_integration_tokens_workspace on integration_tokens(workspace_id);
+
+-- ─── Rate limit log (sliding window) ────────────────────────────────────────
+
+create table if not exists rate_limit_log (
+  id         bigserial primary key,
+  key        text not null,
+  tier       text not null default 'free',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_rate_limit_log_key_time on rate_limit_log(key, created_at);
+
+-- Auto-purge rows older than 5 minutes to keep the table small
+-- (actual cleanup handled by a periodic job or pg_cron)
