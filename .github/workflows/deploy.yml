@@ -7,15 +7,17 @@ on:
 permissions:
   contents: read
   deployments: write
+  statuses: read
 
 jobs:
   record-deployment:
     name: Record deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     env:
       IS_PROD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       BRANCH_SLUG: ${{ github.head_ref || github.ref_name }}
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Sanitize branch slug
         id: slug
@@ -39,7 +41,31 @@ jobs:
               && 'Vercel production deploy'
               || format('Vercel preview — {0}', env.BRANCH_SLUG) }}
 
+      # The GitHub deployment must mirror what Vercel actually did. Never report
+      # success before the Vercel commit status for this commit is green.
+      - name: Wait for the Vercel build
+        id: vercel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          state="pending"
+          for attempt in $(seq 1 40); do
+            state=$(gh api "repos/${{ github.repository }}/commits/${TARGET_SHA}/statuses" \
+              --jq '[.[] | select(.context == "Vercel")][0].state // "pending"' 2>/dev/null || echo "pending")
+            state=${state:-pending}
+            echo "attempt ${attempt}: Vercel reports ${state}"
+            if [ "$state" = "success" ] || [ "$state" = "failure" ] || [ "$state" = "error" ]; then
+              break
+            fi
+            sleep 15
+          done
+          echo "state=${state}" >> "$GITHUB_OUTPUT"
+          if [ "$state" != "success" ]; then
+            echo "::error::Vercel did not report success for ${TARGET_SHA} (state: ${state}). Check https://vercel.com/ta-to/eidon"
+          fi
+
       - name: Mark deployment successful
+        if: steps.vercel.outputs.state == 'success'
         uses: chrnorm/deployment-status@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,5 +78,20 @@ jobs:
                         steps.slug.outputs.value) }}
           description: >-
             ${{ env.IS_PROD == 'true'
-              && 'Production deployment live'
-              || format('Preview deployment — {0}', env.BRANCH_SLUG) }}
+              && 'Vercel production deploy is ready'
+              || format('Vercel preview is ready — {0}', env.BRANCH_SLUG) }}
+
+      - name: Mark deployment failed
+        if: steps.vercel.outputs.state != 'success'
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          deployment-id: ${{ steps.deployment.outputs.deployment_id }}
+          state: failure
+          environment-url: >-
+            ${{ env.IS_PROD == 'true'
+              && 'https://eidon-ta-to.vercel.app'
+              || format('https://eidon-git-{0}-ta-to.vercel.app',
+                        steps.slug.outputs.value) }}
+          description: >-
+            Vercel build did not succeed (${{ steps.vercel.outputs.state }})
