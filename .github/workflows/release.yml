@@ -58,7 +58,7 @@ jobs:
       - run: npm install
 
       - name: Build SDK
-        run: npx tsup
+        run: npm run build
 
       - name: Publish (dry-run without NPM_TOKEN)
         if: ${{ env.NODE_AUTH_TOKEN == '' }}
@@ -92,7 +92,7 @@ jobs:
       - run: npm install
 
       - name: Build CLI
-        run: npx tsup
+        run: npm run build
 
       - name: Publish (dry-run without NPM_TOKEN)
         if: ${{ env.NODE_AUTH_TOKEN == '' }}
@@ -127,9 +127,13 @@ jobs:
       - name: Build wheel
         run: hatch build
 
-      - name: Publish to PyPI (dry-run without PYPI_TOKEN)
+      - name: Publish (dry-run without PYPI_TOKEN)
         if: ${{ env.HATCH_INDEX_AUTH == '' }}
-        run: hatch publish --dry-run 2>/dev/null || hatch build --show
+        run: |
+          echo "No PYPI_TOKEN set — skipping publish (dry-run)"
+          hatch build
+          echo "Built packages:"
+          ls dist/
         env:
           HATCH_INDEX_AUTH: ${{ secrets.PYPI_TOKEN }}
 
@@ -143,7 +147,8 @@ jobs:
   # ── 5. Create GitHub Release ───────────────────────────────────────────────
   github-release:
     name: GitHub Release
-    needs: [publish-node-sdk, publish-cli, publish-python-sdk]
+    needs: [build-verify, publish-node-sdk, publish-cli, publish-python-sdk]
+    if: always() && needs.build-verify.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
