@@ -7,13 +7,12 @@ on:
 permissions:
   contents: read
   deployments: write
-  statuses: read
 
 jobs:
   record-deployment:
     name: Record deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       IS_PROD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       BRANCH_SLUG: ${{ github.head_ref || github.ref_name }}
@@ -41,57 +40,21 @@ jobs:
               && 'Vercel production deploy'
               || format('Vercel preview — {0}', env.BRANCH_SLUG) }}
 
-      # The GitHub deployment must mirror what Vercel actually did. Never report
-      # success before the Vercel commit status for this commit is green.
-      - name: Wait for the Vercel build
-        id: vercel
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          state="pending"
-          for attempt in $(seq 1 40); do
-            state=$(gh api "repos/${{ github.repository }}/commits/${TARGET_SHA}/statuses" \
-              --jq '[.[] | select(.context == "Vercel")][0].state // "pending"' 2>/dev/null || echo "pending")
-            state=${state:-pending}
-            echo "attempt ${attempt}: Vercel reports ${state}"
-            if [ "$state" = "success" ] || [ "$state" = "failure" ] || [ "$state" = "error" ]; then
-              break
-            fi
-            sleep 15
-          done
-          echo "state=${state}" >> "$GITHUB_OUTPUT"
-          if [ "$state" != "success" ]; then
-            echo "::error::Vercel did not report success for ${TARGET_SHA} (state: ${state}). Check https://vercel.com/ta-to/eidon"
-          fi
-
-      - name: Mark deployment successful
-        if: steps.vercel.outputs.state == 'success'
+      # Vercel's deployment checks wait for every GitHub check on this commit. A job that
+      # waits for Vercel inside one of those checks is a deadlock: both sides wait forever,
+      # and the deployment is eventually reported as failed even though nothing was built.
+      # Record the deployment as running and let deploy-status.yml observe the real result.
+      - name: Mark deployment running
         uses: chrnorm/deployment-status@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           deployment-id: ${{ steps.deployment.outputs.deployment_id }}
-          state: success
+          state: in_progress
           environment-url: >-
             ${{ env.IS_PROD == 'true'
               && 'https://eidon-ta-to.vercel.app'
               || format('https://eidon-git-{0}-ta-to.vercel.app',
                         steps.slug.outputs.value) }}
           description: >-
-            ${{ env.IS_PROD == 'true'
-              && 'Vercel production deploy is ready'
-              || format('Vercel preview is ready — {0}', env.BRANCH_SLUG) }}
-
-      - name: Mark deployment failed
-        if: steps.vercel.outputs.state != 'success'
-        uses: chrnorm/deployment-status@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          deployment-id: ${{ steps.deployment.outputs.deployment_id }}
-          state: failure
-          environment-url: >-
-            ${{ env.IS_PROD == 'true'
-              && 'https://eidon-ta-to.vercel.app'
-              || format('https://eidon-git-{0}-ta-to.vercel.app',
-                        steps.slug.outputs.value) }}
-          description: >-
-            Vercel build did not succeed (${{ steps.vercel.outputs.state }})
+            Vercel build queued for ${{ env.TARGET_SHA }}; final state is verified by the
+            scheduled deployment status check

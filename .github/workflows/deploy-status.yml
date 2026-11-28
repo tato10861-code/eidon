@@ -1,0 +1,77 @@
+name: Deployment status
+
+# Vercel's deployment checks wait for the GitHub checks on a commit. The Deploy workflow
+# therefore must finish quickly, and a separate, unscheduled-commit job observes the real
+# Vercel result afterwards. This job is deliberately cron driven: a workflow_run on the
+# Deploy workflow would create another check on the same commit and deadlock again.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+  statuses: read
+
+jobs:
+  sync:
+    name: Sync Vercel result to GitHub deployments
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Reconcile deployment states
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          updated=0
+
+          for dep_id in $(gh api "repos/${REPO}/deployments?per_page=30" --jq '.[].id'); do
+            state=$(gh api "repos/${REPO}/deployments/${dep_id}/statuses?per_page=1" \
+              --jq '.[0].state // "unknown"')
+            case "${state}" in
+              in_progress|inactive|queued|pending) ;;
+              *) continue ;;
+            esac
+
+            sha=$(gh api "repos/${REPO}/deployments/${dep_id}" --jq '.sha')
+            url=$(gh api "repos/${REPO}/deployments/${dep_id}" --jq '.environment_url // ""')
+
+            vercel_state=$(gh api "repos/${REPO}/commits/${sha}/statuses" \
+              --jq '[.[] | select(.context == "Vercel")][0].state // "pending"')
+            vercel_desc=$(gh api "repos/${REPO}/commits/${sha}/statuses" \
+              --jq '[.[] | select(.context == "Vercel")][0].description // ""')
+
+            case "${vercel_state}" in
+              success)
+                final=success
+                description="Vercel build is ready for ${sha}"
+                ;;
+              failure|error)
+                if printf '%s' "${vercel_desc}" | grep -qi 'rate limited'; then
+                  final=inactive
+                  description="Vercel deployment budget exhausted; retry after the window resets"
+                else
+                  final=failure
+                  description="Vercel build did not succeed for ${sha}"
+                fi
+                ;;
+              *)
+                echo "deployment ${dep_id}: Vercel still reports ${vercel_state}; leaving ${state}"
+                continue
+                ;;
+            esac
+
+            args=(-f "state=${final}" -f "description=${description}")
+            if [ -n "${url}" ]; then
+              args+=(-f "environment_url=${url}")
+            fi
+            gh api "repos/${REPO}/deployments/${dep_id}/statuses" "${args[@]}" >/dev/null
+            echo "deployment ${dep_id}: ${state} -> ${final}"
+            updated=$((updated + 1))
+          done
+
+          echo "reconciled=${updated}"

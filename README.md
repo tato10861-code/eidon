@@ -300,7 +300,11 @@ README reflect the latest production and preview status and update automatically
 Latest confirmed Production URL: https://eidon-ta-to.vercel.app
 
 The latest GitHub checkpoint is not considered live until Vercel reports a READY deployment for
-that exact commit SHA. See [release notes](docs/release-notes-2026-11-28.md) for the current deployment record.
+that exact commit SHA. The `Deploy` workflow records a running GitHub deployment and exits quickly
+so Vercel's deployment checks do not deadlock with it; the scheduled `Deployment status` workflow
+then reconciles the real Vercel result onto that deployment every ten minutes. A rate limited
+build is recorded as inactive rather than as a false success or a permanent failure. See
+[release notes](docs/release-notes-2026-11-28.md) for the current deployment record.
 
 ### Deployment budget (Vercel Hobby)
 
