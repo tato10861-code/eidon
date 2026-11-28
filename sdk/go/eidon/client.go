@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 const defaultBaseURL = "https://eidon.ai"
 
 // Client is the Eidon API client.
