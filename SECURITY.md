@@ -51,8 +51,10 @@ Out of scope:
 - Secrets live in environment variables and are never committed.
 - Tool access uses scoped OAuth and least privilege.
 - The runtime enforces guardrails before outbound actions.
-- Every decision is written to an append-only audit trail.
-- Dependencies are reviewed weekly through Dependabot and CodeQL runs on every push.
+- Supported tool approval and integration events are written to a database audit trail;
+  customers should confirm retention and immutability requirements for their deployment.
+- Dependencies are checked through the repository's CI and automated security tooling;
+  review cadence and coverage may vary by release.
 
 ## Supported versions
 

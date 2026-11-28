@@ -10,6 +10,8 @@
 
 import type { NextRequest } from "next/server";
 import { generateApiKey, type ApiKey, type ApiKeyScope } from "@/lib/api-keys";
+import { listPersistedApiKeys, persistApiKey, revokePersistedApiKey } from "@/lib/api-key-store";
+import { writeAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   accessError,
@@ -74,6 +76,26 @@ export async function POST(request: NextRequest) {
   };
   keyStore.set(record.id, record);
   registerDemoApiKey(record);
+  try {
+    await persistApiKey(record);
+  } catch {
+    keyStore.delete(record.id);
+    revokeDemoApiKey(record.id);
+    return Response.json({ error: "Key could not be persisted." }, { status: 503 });
+  }
+  await writeAudit({
+    workspaceId,
+    actor: "workspace-admin",
+    action: "api_key.created",
+    target: record.id,
+    outcome: "executed",
+    payload: {
+      name: record.name,
+      prefix: record.prefix,
+      scopes: record.scopes,
+      expiresAt: record.expiresAt,
+    },
+  });
 
   return Response.json(
     {
@@ -99,7 +121,13 @@ export async function GET(request: NextRequest) {
     return accessError(error);
   }
 
-  const keys = getWorkspaceKeys(workspaceId).map((k) => ({
+  let sourceKeys = getWorkspaceKeys(workspaceId);
+  try {
+    sourceKeys = (await listPersistedApiKeys(workspaceId)) ?? sourceKeys;
+  } catch {
+    return Response.json({ error: "Key store unavailable." }, { status: 503 });
+  }
+  const keys = sourceKeys.map((k) => ({
     id: k.id,
     name: k.name,
     prefix: k.prefix,
@@ -118,16 +146,33 @@ export async function DELETE(request: NextRequest) {
   if (!id) return Response.json({ error: "Missing key id." }, { status: 400 });
 
   const existing = keyStore.get(id);
-  if (!existing) return Response.json({ error: "Key not found." }, { status: 404 });
+  const persisted = existing ?? {
+    id,
+    workspaceId: new URL(request.url).searchParams.get("workspaceId") ?? "",
+  };
+  if (!persisted.workspaceId)
+    return Response.json({ error: "workspaceId is required." }, { status: 400 });
   try {
-    await authorizeWorkspace(request, existing.workspaceId, "admin");
+    await authorizeWorkspace(request, persisted.workspaceId, "admin");
   } catch (error) {
     return accessError(error);
   }
 
-  const deleted = keyStore.delete(id);
+  let deleted = keyStore.delete(id);
   revokeDemoApiKey(id);
+  try {
+    deleted = (await revokePersistedApiKey(id, persisted.workspaceId)) || deleted;
+  } catch {
+    return Response.json({ error: "Key store unavailable." }, { status: 503 });
+  }
   if (!deleted) return Response.json({ error: "Key not found." }, { status: 404 });
+  await writeAudit({
+    workspaceId: persisted.workspaceId,
+    actor: "workspace-admin",
+    action: "api_key.revoked",
+    target: id,
+    outcome: "executed",
+  });
 
   return Response.json({ deleted: true, id });
 }

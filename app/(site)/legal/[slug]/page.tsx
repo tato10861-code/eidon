@@ -89,7 +89,7 @@ const content: Record<Slug, { updated: string; sections: { heading: string; body
       },
       {
         heading: "Availability",
-        body: "We target 99.9% monthly uptime on Scale and 99.99% on Enterprise under an SLA. Scheduled maintenance is announced in advance.",
+        body: "Availability targets, support response times and service credits apply only when stated in the applicable Order Form or SLA. Scheduled maintenance is announced when reasonably practicable.",
       },
       {
         heading: "Liability",
@@ -118,7 +118,7 @@ const content: Record<Slug, { updated: string; sections: { heading: string; body
       },
       {
         heading: "Security measures",
-        body: "Encryption in transit and at rest, role-based access, audit logging, regional residency, least-privilege tool scopes, and a documented incident-response process.",
+        body: "Security measures include encryption in transit and at rest where supported by the configured provider, role-based access, workspace-scoped audit logging, least-privilege tool scopes, and documented incident-response procedures.",
       },
       {
         heading: "Data subject requests",
@@ -130,7 +130,7 @@ const content: Record<Slug, { updated: string; sections: { heading: string; body
       },
       {
         heading: "Audits",
-        body: "You may audit our compliance on reasonable notice, or rely on our SOC 2 readiness assessment and third-party reports once the audit closes.",
+        body: "You may request reasonable security information on notice. Eidon does not represent that a SOC 2 or other certification has been completed unless expressly stated in the applicable Order Form.",
       },
       {
         heading: "Term and return of data",

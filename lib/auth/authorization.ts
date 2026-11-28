@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-keys";
 import { getSupabase } from "@/lib/supabase";
 import { getNeon } from "@/lib/neon";
+import { findPersistedApiKeysByPrefix, touchPersistedApiKey } from "@/lib/api-key-store";
 
 export type AccessPrincipal =
   | { kind: "demo"; subject: "demo"; workspaceId: string }
@@ -67,10 +68,19 @@ export function revokeDemoApiKey(id: string) {
 async function findApiKey(raw: string): Promise<ApiKey | null> {
   const prefix = extractPrefix(raw);
   if (!prefix) return null;
-  const candidates = [...apiKeyStore.values()].filter((item) => item.prefix === prefix);
+  let candidates = [...apiKeyStore.values()].filter((item) => item.prefix === prefix);
+  try {
+    const persisted = await findPersistedApiKeysByPrefix(prefix);
+    if (persisted) candidates = [...candidates, ...persisted];
+  } catch {
+    // A database outage must not turn demo authorization into a server crash.
+  }
   for (const candidate of candidates) {
     if (candidate.expiresAt !== null && candidate.expiresAt <= Date.now()) continue;
-    if (await verifyApiKey(raw, candidate.hash)) return candidate;
+    if (await verifyApiKey(raw, candidate.hash)) {
+      void touchPersistedApiKey(candidate.id).catch(() => undefined);
+      return candidate;
+    }
   }
   return null;
 }

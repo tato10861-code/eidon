@@ -29,7 +29,7 @@ const principles = [
   {
     icon: ShieldCheck,
     title: "Trust is architecture",
-    body: "Least privilege, approval thresholds and an append-only audit trail are runtime features. They are not policy language.",
+    body: "Least privilege, approval thresholds and workspace-scoped audit records are runtime features. They are not policy language.",
   },
   {
     icon: Feather,

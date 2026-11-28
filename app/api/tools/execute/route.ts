@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
+import { consumeApprovalToken, issueApprovalToken, ApprovalDenied } from "@/lib/approvals";
+import { writeAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +12,7 @@ interface ToolRequest {
   tool: string;
   action: string;
   params?: Record<string, unknown>;
-  approved?: boolean;
+  approvalToken?: string;
 }
 
 // Actions that require human approval before execution.
@@ -37,24 +39,69 @@ export async function POST(request: NextRequest) {
 
   const needsApproval = APPROVAL_REQUIRED.has(body.action.toLowerCase());
 
-  if (
-    needsApproval &&
-    !(
-      body.approved &&
-      principal.kind === "demo" &&
-      process.env.EIDON_ALLOW_DEMO_TOOL_APPROVAL === "true"
-    )
-  ) {
+  if (needsApproval && !body.approvalToken) {
+    const approval = await issueApprovalToken({
+      workspaceId: body.workspaceId,
+      actor: principal.subject,
+      tool: body.tool,
+      action: body.action,
+      params: body.params,
+    });
+    await writeAudit({
+      workspaceId: body.workspaceId,
+      actor: principal.subject,
+      action: "tool.approval_requested",
+      target: `${body.tool}:${body.action}`,
+      outcome: "requested",
+      payload: { params: body.params },
+    });
     return NextResponse.json(
       {
         status: "approval_required",
         tool: body.tool,
         action: body.action,
+        approvalToken: approval.token,
+        approvalExpiresAt: new Date(approval.expiresAt).toISOString(),
         message: "This action requires human approval before execution.",
       },
       { status: 202 },
     );
   }
+
+  if (needsApproval) {
+    try {
+      await consumeApprovalToken({
+        token: body.approvalToken!,
+        workspaceId: body.workspaceId,
+        actor: principal.subject,
+        tool: body.tool,
+        action: body.action,
+        params: body.params,
+      });
+    } catch (error) {
+      if (error instanceof ApprovalDenied) {
+        await writeAudit({
+          workspaceId: body.workspaceId,
+          actor: principal.subject,
+          action: "tool.approval_rejected",
+          target: `${body.tool}:${body.action}`,
+          outcome: "rejected",
+          payload: { code: error.code },
+        });
+        return NextResponse.json({ error: error.message, code: error.code }, { status: 403 });
+      }
+      return NextResponse.json({ error: "Approval store unavailable." }, { status: 503 });
+    }
+  }
+
+  await writeAudit({
+    workspaceId: body.workspaceId,
+    actor: principal.subject,
+    action: "tool.executed",
+    target: `${body.tool}:${body.action}`,
+    outcome: "executed",
+    payload: { params: body.params },
+  });
 
   // Demo execution: returns a structured result. Real execution would call the
   // provider API with the stored OAuth token.

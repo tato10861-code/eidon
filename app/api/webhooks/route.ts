@@ -3,6 +3,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { getNeon } from "@/lib/neon";
 import crypto from "node:crypto";
 import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
+import { validateWebhookTarget } from "@/lib/webhooks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,20 +73,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname.toLowerCase();
-    const blocked =
-      parsed.protocol !== "https:" ||
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1" ||
-      hostname.endsWith(".local") ||
-      hostname.endsWith(".internal") ||
-      hostname === "169.254.169.254" ||
-      hostname.startsWith("10.") ||
-      hostname.startsWith("192.168.") ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
-    if (blocked) throw new Error("private or non-HTTPS target");
+    await validateWebhookTarget(url);
   } catch {
     return Response.json({ error: "url must be a valid HTTPS URL." }, { status: 400 });
   }

@@ -58,7 +58,7 @@ const controls = [
 const practices = [
   "Threat model every new surface before it ships.",
   "Secrets live in a managed vault and are never committed.",
-  "Dependencies are reviewed weekly through Dependabot and CodeQL.",
+  "Dependencies and security-sensitive changes are checked through repository CI and release review.",
   "Production changes require review, CI and a rollback plan.",
   "Access to customer data is time-boxed and logged.",
   "Incidents get a written post-mortem within five business days.",
@@ -198,10 +198,22 @@ export default function SecurityPage() {
                 status: "Readiness complete · audit planned",
                 tone: "amber",
               },
-              { name: "GDPR", status: "DPA and data processing register in place", tone: "lime" },
-              { name: "CCPA / CPRA", status: "Data subject request process defined", tone: "lime" },
+              {
+                name: "GDPR",
+                status: "DPA and process documentation in progress · legal review required",
+                tone: "amber",
+              },
+              {
+                name: "CCPA / CPRA",
+                status: "Data subject request process documented · legal review required",
+                tone: "amber",
+              },
               { name: "ISO 27001", status: "Roadmap · after SOC 2", tone: "fog" },
-              { name: "HIPAA", status: "Available with a signed BAA on Enterprise", tone: "lime" },
+              {
+                name: "HIPAA",
+                status: "Not a certification; requires a signed BAA and deployment review",
+                tone: "amber",
+              },
             ].map((item) => (
               <div
                 key={item.name}

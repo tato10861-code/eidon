@@ -32,14 +32,14 @@ const deploymentOptions = [
     icon: Globe,
     title: "SaaS",
     description:
-      "Full platform hosted by Eidon. Zero infrastructure, automatic updates, 99.99% SLA. Ideal for fast deployment.",
+      "Full platform hosted by Eidon. Zero infrastructure and automatic updates; service levels are defined in the signed Order Form.",
     highlight: false,
   },
   {
     icon: Server,
     title: "Private Cloud / VPC",
     description:
-      "Deployed into your AWS, GCP or Azure VPC. Your data never leaves your perimeter. Bring your own AI model.",
+      "Deployed into your AWS, GCP or Azure VPC. Residency and network boundaries follow your configured infrastructure and Order Form.",
     highlight: true,
   },
   {
@@ -81,13 +81,13 @@ const enterpriseFeatures = [
     icon: Shield,
     title: "Audit logs",
     description:
-      "Immutable log of every API call, authentication event and configuration change. Export to your SIEM.",
+      "Workspace-scoped audit records for supported security and integration events, with export paths for your SIEM.",
   },
   {
     icon: Webhook,
     title: "Webhooks & event streaming",
     description:
-      "Real-time events for every conversation turn, tool call and employee state change. Kafka and SNS connectors available.",
+      "Signed, retryable webhook events for supported workspace integrations; additional streaming connectors are scoped per deployment.",
   },
   {
     icon: Network,

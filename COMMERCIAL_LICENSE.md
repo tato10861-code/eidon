@@ -106,10 +106,12 @@ wind-down period with read-only access to export data.
 
 ## 8. Governing law
 
-This agreement is governed by the laws of [Jurisdiction to be specified
-in Order Form], without regard to conflict-of-law principles.
+This agreement is governed by the laws of England and Wales, without regard
+to conflict-of-law principles. Disputes are subject to the exclusive
+jurisdiction of the courts of London.
 
 ---
 
-_This document is a template. A binding license requires a signed Order
-Form. Contact enterprise@eidon.ai to begin._
+_This document is a commercial template and is not legal advice. A binding
+license requires a signed Order Form reviewed by qualified counsel. Contact
+enterprise@eidon.ai to begin._

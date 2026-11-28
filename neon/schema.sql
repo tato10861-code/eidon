@@ -69,6 +69,25 @@ create table if not exists billing_subscriptions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists approval_tokens (
+  id uuid primary key,
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  actor text not null,
+  tool text not null,
+  action text not null,
+  payload_hash text not null,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists billing_events (
+  id text primary key,
+  type text not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists employees (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid references workspaces(id) on delete cascade,
@@ -145,6 +164,8 @@ create table if not exists webhook_deliveries (
 create index if not exists idx_workspace_memberships_user on workspace_memberships(user_id);
 create index if not exists idx_integration_credentials_workspace on integration_credentials(workspace_id);
 create index if not exists idx_api_keys_workspace on api_keys(workspace_id);
+create index if not exists idx_approval_tokens_workspace on approval_tokens(workspace_id);
+create index if not exists idx_approval_tokens_expiry on approval_tokens(expires_at);
 create index if not exists idx_employees_workspace on employees(workspace_id);
 create index if not exists idx_conversations_workspace on conversations(workspace_id);
 create index if not exists idx_messages_conversation on messages(conversation_id);

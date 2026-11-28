@@ -70,6 +70,41 @@ create table if not exists public.billing_subscriptions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.approval_tokens (
+  id uuid primary key,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  actor text not null,
+  tool text not null,
+  action text not null,
+  payload_hash text not null,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.webhooks (
+  id text primary key,
+  workspace_id uuid references public.workspaces(id) on delete cascade,
+  url text not null,
+  events jsonb not null default '[]',
+  signing_secret text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.webhook_deliveries (
+  id text primary key,
+  webhook_id text references public.webhooks(id) on delete cascade,
+  event text not null,
+  payload jsonb not null,
+  status_code integer,
+  success boolean not null default false,
+  attempt integer not null default 1,
+  created_at timestamptz not null default now()
+);
+
 -- Employees (custom + cloned from templates)
 create table if not exists public.employees (
   id uuid primary key default gen_random_uuid(),
@@ -130,6 +165,10 @@ create table if not exists public.audit_log (
 create index if not exists idx_workspace_memberships_user on public.workspace_memberships(user_id);
 create index if not exists idx_integration_credentials_workspace on public.integration_credentials(workspace_id);
 create index if not exists idx_api_keys_workspace on public.api_keys(workspace_id);
+create index if not exists idx_approval_tokens_workspace on public.approval_tokens(workspace_id);
+create index if not exists idx_approval_tokens_expiry on public.approval_tokens(expires_at);
+create index if not exists idx_webhooks_workspace on public.webhooks(workspace_id);
+create index if not exists idx_webhook_deliveries_webhook on public.webhook_deliveries(webhook_id);
 create index if not exists idx_usage_monthly_workspace on public.usage_monthly(workspace_id);
 create index if not exists idx_employees_workspace on public.employees(workspace_id);
 create index if not exists idx_conversations_workspace on public.conversations(workspace_id);
@@ -144,6 +183,9 @@ alter table public.integration_credentials enable row level security;
 alter table public.api_keys enable row level security;
 alter table public.usage_monthly enable row level security;
 alter table public.billing_subscriptions enable row level security;
+alter table public.approval_tokens enable row level security;
+alter table public.webhooks enable row level security;
+alter table public.webhook_deliveries enable row level security;
 alter table public.employees enable row level security;
 alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
@@ -175,6 +217,9 @@ drop policy if exists "members can access integration credentials" on public.int
 drop policy if exists "admins can access api keys" on public.api_keys;
 drop policy if exists "members can read usage" on public.usage_monthly;
 drop policy if exists "admins can read billing" on public.billing_subscriptions;
+drop policy if exists "members can use approvals" on public.approval_tokens;
+drop policy if exists "admins can manage webhooks" on public.webhooks;
+drop policy if exists "members can read webhook deliveries" on public.webhook_deliveries;
 
 create policy "members can read memberships" on public.workspace_memberships
   for select using (user_id = auth.uid() or public.is_workspace_member(workspace_id));
@@ -191,6 +236,14 @@ create policy "members can read usage" on public.usage_monthly
   for select using (public.is_workspace_member(workspace_id));
 create policy "admins can read billing" on public.billing_subscriptions
   for select using (public.is_workspace_member(workspace_id));
+create policy "members can use approvals" on public.approval_tokens
+  for all using (public.is_workspace_member(workspace_id))
+  with check (public.is_workspace_member(workspace_id));
+create policy "admins can manage webhooks" on public.webhooks
+  for all using (exists (select 1 from public.workspace_memberships m where m.workspace_id = webhooks.workspace_id and m.user_id = auth.uid() and m.role in ('owner','admin')))
+  with check (exists (select 1 from public.workspace_memberships m where m.workspace_id = webhooks.workspace_id and m.user_id = auth.uid() and m.role in ('owner','admin')));
+create policy "members can read webhook deliveries" on public.webhook_deliveries
+  for select using (exists (select 1 from public.webhooks w where w.id = webhook_id and public.is_workspace_member(w.workspace_id)));
 
 create policy "members can read workspaces" on public.workspaces
   for select using (public.is_workspace_member(id));
