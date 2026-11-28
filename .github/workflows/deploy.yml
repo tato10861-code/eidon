@@ -1,57 +1,142 @@
-name: Deploy
+name: Deploy to Vercel
+
+# Controlled deployment: only main→production, PRs→one preview per push.
+# Prevents exhausting the Vercel free-tier 100 deployments/day limit.
+# Requires GitHub secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
   deployments: write
+  pull-requests: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  record-deployment:
-    name: Record deployment
+  deploy:
+    name: ${{ github.event_name == 'push' && 'Production deploy' || 'Preview deploy' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: github.event_name == 'push'
-    env:
-      IS_PROD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      BRANCH_SLUG: ${{ github.head_ref || github.ref_name }}
-    steps:
-      - name: Sanitize branch slug
-        id: slug
-        run: |
-          raw="${{ env.BRANCH_SLUG }}"
-          echo "value=${raw//\//-}" >> "$GITHUB_OUTPUT"
+    timeout-minutes: 20
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.url }}
 
-      - name: Create GitHub deployment
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      # Pull project settings (env vars, project config) from Vercel
+      - name: Pull Vercel environment
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          fi
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Build the project locally (Vercel builds in CI for consistent results)
+      - name: Build project
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          fi
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Deploy prebuilt output to Vercel
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          else
+            URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to: $URL"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Record the deployment in GitHub (shows in PR/branch environments tab)
+      - name: Record GitHub deployment
         uses: chrnorm/deployment-action@v2
-        id: deployment
+        id: gh-deployment
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          environment: ${{ env.IS_PROD == 'true' && 'production' || 'preview' }}
-          environment-url: >-
-            ${{ env.IS_PROD == 'true'
-              && 'https://eidon-ta-to.vercel.app'
-              || format('https://eidon-git-{0}-ta-to.vercel.app',
-                        steps.slug.outputs.value) }}
+          environment: ${{ github.event_name == 'push' && 'production' || 'preview' }}
+          environment-url: ${{ steps.deploy.outputs.url }}
           description: >-
-            ${{ env.IS_PROD == 'true'
+            ${{ github.event_name == 'push'
               && 'Vercel production deploy'
-              || format('Vercel preview — {0}', env.BRANCH_SLUG) }}
+              || format('Vercel preview — {0}', github.head_ref) }}
 
       - name: Mark deployment successful
         uses: chrnorm/deployment-status@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          deployment-id: ${{ steps.deployment.outputs.deployment_id }}
+          deployment-id: ${{ steps.gh-deployment.outputs.deployment_id }}
           state: success
-          environment-url: >-
-            ${{ env.IS_PROD == 'true'
-              && 'https://eidon-ta-to.vercel.app'
-              || format('https://eidon-git-{0}-ta-to.vercel.app',
-                        steps.slug.outputs.value) }}
-          description: >-
-            ${{ env.IS_PROD == 'true'
-              && 'Production deployment live'
-              || format('Preview deployment — {0}', env.BRANCH_SLUG) }}
+          environment-url: ${{ steps.deploy.outputs.url }}
+
+      # Post preview URL as a PR comment for easy access
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.deploy.outputs.url }}';
+            const sha = context.payload.pull_request.head.sha.substring(0, 7);
+            const body = `### Preview Deployment\n\n` +
+              `Deployed commit \`${sha}\` to Vercel Preview:\n` +
+              `**${url}**\n\n` +
+              `> This preview is automatically updated on each push to this PR.`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            // Update existing bot comment if present, otherwise create new
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview Deployment')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
