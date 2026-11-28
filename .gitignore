@@ -16,6 +16,13 @@ next-env.d.ts
 # production
 /build
 
+# python
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+dist/
+.hatch/
+
 # misc
 .DS_Store
 *.pem
