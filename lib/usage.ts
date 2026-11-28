@@ -71,3 +71,28 @@ export function getUsageSummary(workspaceId: string) {
     month: currentMonth(),
   };
 }
+
+export function getGlobalStats() {
+  let totalApiCalls = 0;
+  let totalChatTokens = 0;
+  let totalConversationTurns = 0;
+  let totalExportJobs = 0;
+  const workspaceCount = new Set<string>();
+
+  for (const rec of store.values()) {
+    totalApiCalls += rec.apiCalls;
+    totalChatTokens += rec.chatTokens;
+    totalConversationTurns += rec.conversationTurns;
+    totalExportJobs += rec.exportJobs;
+    workspaceCount.add(rec.workspaceId);
+  }
+
+  return {
+    activeWorkspaces: workspaceCount.size,
+    totalApiCalls,
+    totalChatTokens,
+    totalConversationTurns,
+    totalExportJobs,
+    month: currentMonth(),
+  };
+}

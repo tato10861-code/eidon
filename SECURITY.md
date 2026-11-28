@@ -1,63 +1,59 @@
-# Security policy
-
-Eidon runs AI employees that touch real customer conversations, data and tools. We treat
-security as a product requirement, not a compliance checkbox.
-
-## Reporting a vulnerability
-
-**Do not open a public issue.** Report privately through
-[GitHub Security Advisories](https://github.com/tato10861-code/eidon/security/advisories/new)
-or email `security@eidon.ai`.
-
-Include:
-
-- A description of the issue and the affected component.
-- Reproduction steps or a proof of concept.
-- Impact assessment, if you can.
-- Your name and a contact method for follow-up.
-
-## Our commitment
-
-| Step                   | Target                                   |
-| ---------------------- | ---------------------------------------- |
-| Acknowledgement        | 1 business day                           |
-| Initial triage         | 3 business days                          |
-| Remediation plan       | 10 business days                         |
-| Coordinated disclosure | After the fix ships, by mutual agreement |
-
-We will credit researchers who ask to be credited. We will not pursue legal action for
-good-faith research that respects privacy, avoids data destruction and does not degrade
-the service.
-
-## Scope
-
-In scope:
-
-- Authentication and authorisation boundaries.
-- Prompt injection that crosses a documented guardrail.
-- Tool-scope escalation or cross-tenant data access.
-- Secret leakage, SSRF, XSS and injection in the web application.
-- Rate-limit and denial-of-service weaknesses in the chat runtime.
-
-Out of scope:
-
-- Reports generated only by automated scanners without a working exploit.
-- Social engineering of Eidon staff.
-- Denial of service through brute force or traffic volume.
-- Issues in third-party services we integrate with (report them upstream).
-
-## Secure development
-
-- Secrets live in environment variables and are never committed.
-- Tool access uses scoped OAuth and least privilege.
-- The runtime enforces guardrails before outbound actions.
-- Every decision is written to an append-only audit trail.
-- Dependencies are reviewed weekly through Dependabot and CodeQL runs on every push.
+# Security Policy
 
 ## Supported versions
 
-| Version               | Supported   |
-| --------------------- | ----------- |
-| `main`                | Yes         |
-| Latest tagged release | Yes         |
-| Older releases        | Best effort |
+| Version | Supported                    |
+| ------- | ---------------------------- |
+| 0.3.x   | ✅ Yes                       |
+| 0.2.x   | ✅ Yes (critical fixes only) |
+| < 0.2   | ❌ No                        |
+
+## Reporting a vulnerability
+
+**Please do not report security vulnerabilities through public GitHub issues.**
+
+Send a detailed report to **security@eidon.ai** with:
+
+1. A description of the vulnerability and its potential impact
+2. Steps to reproduce the issue
+3. Any relevant log output, screenshots, or proof-of-concept code
+
+We will acknowledge your report within **48 hours** and aim to release a patch
+within **14 days** for critical issues. We follow [Responsible Disclosure]
+(https://en.wikipedia.org/wiki/Coordinated_vulnerability_disclosure): credit is
+given in the release notes unless you request anonymity.
+
+If the issue is critical and you need a faster response, include
+`[URGENT]` in the subject line.
+
+## Security controls
+
+- **Content-Security-Policy** — strict CSP headers on all pages
+- **HSTS** — `Strict-Transport-Security` with 2-year max-age and preload
+- **HMAC-SHA256 webhooks** — all outbound webhook deliveries are signed;
+  verify with `verifyWebhookSignature()` in `lib/webhooks.ts`
+- **API key hashing** — API keys are stored as SHA-256 digests; plaintext
+  is never persisted
+- **Rate limiting** — per-IP sliding-window rate limits on all public endpoints
+- **Admin API** — `/api/admin/*` requires a shared secret (`ADMIN_API_KEY`)
+  delivered as an `x-admin-key` header; timing-safe comparison is used
+- **Audit log** — all workspace mutations are recorded in the `audit_log` table
+- **CodeQL** — static analysis runs on every push via GitHub Actions
+- **Dependabot** — automated dependency updates with security advisory alerts
+- **Dependency review** — high-severity vulnerabilities block PR merges
+
+## Scope
+
+The following are **in scope**:
+
+- API endpoints under `/api/`
+- Authentication and session management
+- Webhook signature verification
+- Database access controls
+- SDK packages: `eidon` (npm), `eidon` (PyPI), `sdk/go`
+
+The following are **out of scope**:
+
+- Issues in third-party dependencies (please report to them directly)
+- Denial-of-service attacks against rate-limited endpoints
+- Attacks that require physical access to a server

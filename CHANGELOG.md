@@ -54,6 +54,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `STRIPE_PRICE_SCALE_MONTHLY`, `STRIPE_PRICE_SCALE_ANNUAL`, `ADMIN_API_KEY`
   documented in `.env.example`
 
+### Added — Billing settings UI
+
+- **Billing & plan page** at `/settings/billing`: current plan card, monthly
+  conversation usage bar, plan comparison grid, upgrade CTAs, and a link to
+  the Stripe Customer Portal for self-service payment management
+- **`GET /api/billing/status`** — returns `plan`, `planName`, `status`,
+  `conversationsUsed`, `conversationsLimit`, `billingPeriodEnd`, `seats`;
+  falls back gracefully to starter defaults when no database is configured
+- `tests/billing-status.test.ts` — 3 tests for the new status endpoint
+
+### Added — Security hardening
+
+- **Content-Security-Policy** header added to `next.config.ts`: strict
+  `default-src 'self'` with allowlist for Vercel Analytics, Google Fonts,
+  and RapiDoc CDN; `eval` and inline event handlers blocked
+- **HSTS** (`Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`)
+  added to all responses
+- **`SECURITY.md`**: vulnerability reporting policy, response SLA, scope
+  definition, and a list of active security controls
+
+### Added — Developer & enterprise documentation
+
+- `tests/chat.test.ts` — 5 integration tests for `POST /api/chat`:
+  missing messages, invalid JSON, empty array, rate-limit 429, and
+  content truncation at 8 000 characters
+
 ---
 
 ## [0.3.0] — 2026-11-28
