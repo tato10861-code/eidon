@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Vercel Web Analytics** (`@vercel/analytics` v2.0.1): page-view and Web Vitals
+  tracking enabled in the Vercel dashboard with zero configuration beyond mounting
+  `<Analytics />` in the root layout
+
 ---
 
 ## [0.2.0] — 2026-11-27
