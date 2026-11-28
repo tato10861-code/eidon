@@ -103,18 +103,20 @@ export async function POST(request: NextRequest) {
 
   const supabase = await getSupabase();
   if (supabase) {
-    const { data, error } = await supabase
-      .from("workspaces")
-      .insert({ name, slug, plan: "starter" })
-      .select()
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (principal.kind === "session" && data?.id) {
-      await supabase.from("workspace_memberships").insert({
-        workspace_id: data.id,
-        user_id: principal.subject,
-        role: "owner",
-      });
+    const { data, error } = await supabase.rpc("create_workspace_with_owner", {
+      p_name: name,
+      p_slug: slug,
+      p_user_id: principal.subject,
+    });
+    if (error) {
+      const status = error.code === "23505" ? 409 : 500;
+      return NextResponse.json(
+        {
+          error:
+            status === 409 ? "Workspace slug is already in use." : "Workspace creation failed.",
+        },
+        { status },
+      );
     }
     return NextResponse.json({ provider: "supabase", workspace: data }, { status: 201 });
   }
@@ -123,20 +125,20 @@ export async function POST(request: NextRequest) {
   if (sql) {
     try {
       const rows = await sql`
-        insert into workspaces (name, slug, plan)
-        values (${name}, ${slug}, 'starter')
-        returning *
+        select * from create_workspace_with_owner(${name}, ${slug}, ${principal.subject}::uuid)
       `;
-      if (principal.kind === "session" && (rows as { id?: string }[])[0]?.id) {
-        await sql`
-          insert into workspace_memberships (workspace_id, user_id, role)
-          values (${(rows as { id: string }[])[0].id}, ${principal.subject}, 'owner')
-        `;
-      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return NextResponse.json({ provider: "neon", workspace: (rows as any)[0] }, { status: 201 });
     } catch (error) {
-      return NextResponse.json({ error: String(error) }, { status: 500 });
+      const message = String(error);
+      return NextResponse.json(
+        {
+          error: message.includes("duplicate key")
+            ? "Workspace slug is already in use."
+            : "Workspace creation failed.",
+        },
+        { status: message.includes("duplicate key") ? 409 : 500 },
+      );
     }
   }
 

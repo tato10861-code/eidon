@@ -3,6 +3,12 @@ import { describe, expect, it } from "vitest";
 import { issueApprovalToken, consumeApprovalToken, ApprovalDenied } from "../lib/approvals";
 import { verifyStripeSignature } from "../lib/billing/stripe";
 import { validateWebhookTarget } from "../lib/webhooks";
+import {
+  createCodeChallenge,
+  createCodeVerifier,
+  createOAuthState,
+  verifyOAuthState,
+} from "../lib/oauth";
 
 describe("security hardening", () => {
   it("issues an approval token that can only be consumed once", async () => {
@@ -48,5 +54,28 @@ describe("security hardening", () => {
 
   it("rejects loopback webhook targets", async () => {
     await expect(validateWebhookTarget("https://127.0.0.1/hook")).rejects.toThrow();
+  });
+
+  it("creates an S256 PKCE pair and rejects OAuth state without a secret", () => {
+    const verifier = createCodeVerifier();
+    expect(createCodeChallenge(verifier)).toHaveLength(43);
+    const previous = process.env.EIDON_OAUTH_STATE_SECRET;
+    delete process.env.EIDON_OAUTH_STATE_SECRET;
+    expect(createOAuthState("github", "workspace")).toBeNull();
+    expect(verifyOAuthState("invalid", "github", "workspace")).toBe(false);
+    if (previous === undefined) delete process.env.EIDON_OAUTH_STATE_SECRET;
+    else process.env.EIDON_OAUTH_STATE_SECRET = previous;
+  });
+
+  it("binds OAuth state to provider and workspace", () => {
+    const previous = process.env.EIDON_OAUTH_STATE_SECRET;
+    process.env.EIDON_OAUTH_STATE_SECRET = "test-oauth-secret-with-sufficient-entropy";
+    const state = createOAuthState("github", "workspace");
+    expect(state).toBeTruthy();
+    expect(verifyOAuthState(state, "github", "workspace")).toBe(true);
+    expect(verifyOAuthState(state, "slack", "workspace")).toBe(false);
+    expect(verifyOAuthState(state, "github", "other-workspace")).toBe(false);
+    if (previous === undefined) delete process.env.EIDON_OAUTH_STATE_SECRET;
+    else process.env.EIDON_OAUTH_STATE_SECRET = previous;
   });
 });

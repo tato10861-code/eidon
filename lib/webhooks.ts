@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
 import { getNeon } from "./neon";
+import { decryptSecret } from "./security/secrets";
 
 export type WebhookEventType =
   "conversation.created" | "message.created" | "chat.completed" | "key.created" | "key.revoked";
@@ -122,7 +123,7 @@ export async function dispatchWebhook<T>(
     rows.map(async (row) => {
       try {
         await validateWebhookTarget(row.url);
-        return deliverOne(row.id, row.url, payload, row.signing_secret);
+        return deliverOne(row.id, row.url, payload, decryptSecret(row.signing_secret));
       } catch {
         return false;
       }

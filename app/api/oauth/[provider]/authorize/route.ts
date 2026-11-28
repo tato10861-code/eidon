@@ -5,6 +5,8 @@ import {
   isProviderConfigured,
   buildAuthorizeUrl,
   createOAuthState,
+  createCodeVerifier,
+  createCodeChallenge,
 } from "@/lib/oauth";
 import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
 
@@ -30,6 +32,11 @@ export async function GET(
 
   const redirectUri = `${request.nextUrl.origin}/api/oauth/${id}/callback?workspaceId=${encodeURIComponent(workspaceId)}`;
   const state = createOAuthState(id, workspaceId);
+  const verifier = createCodeVerifier();
+  if (!state || !process.env.EIDON_OAUTH_STATE_SECRET) {
+    return NextResponse.json({ error: "OAuth is not configured securely." }, { status: 503 });
+  }
+  const authorizeUrl = buildAuthorizeUrl(id, redirectUri, state, createCodeChallenge(verifier));
   const response = !isProviderConfigured(id)
     ? NextResponse.json({
         configured: false,
@@ -37,11 +44,18 @@ export async function GET(
         workspaceId,
         message:
           "Demo mode: provider not configured. Set the client ID/secret env vars to enable live OAuth.",
-        mockAuthorizeUrl: buildAuthorizeUrl(id, redirectUri, state),
+        mockAuthorizeUrl: authorizeUrl,
       })
-    : NextResponse.redirect(buildAuthorizeUrl(id, redirectUri, state)!);
+    : NextResponse.redirect(authorizeUrl!);
 
   response.cookies.set("eidon_oauth_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV !== "development",
+    sameSite: "lax",
+    path: `/api/oauth/${id}`,
+    maxAge: 600,
+  });
+  response.cookies.set("eidon_oauth_verifier", verifier, {
     httpOnly: true,
     secure: process.env.NODE_ENV !== "development",
     sameSite: "lax",

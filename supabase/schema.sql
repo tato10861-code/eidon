@@ -81,8 +81,12 @@ create table if not exists public.billing_subscriptions (
 create table if not exists public.billing_events (
   id text primary key,
   type text not null,
+  processed boolean not null default false,
+  last_error text,
   created_at timestamptz not null default now()
 );
+alter table public.billing_events add column if not exists processed boolean not null default false;
+alter table public.billing_events add column if not exists last_error text;
 
 create table if not exists public.approval_tokens (
   id uuid primary key,
@@ -174,6 +178,44 @@ create table if not exists public.audit_log (
   payload jsonb,
   created_at timestamptz not null default now()
 );
+alter table public.audit_log add column if not exists schema_version integer not null default 1;
+alter table public.audit_log add column if not exists request_id text;
+alter table public.audit_log add column if not exists actor_type text;
+create or replace function public.prevent_audit_mutation()
+returns trigger language plpgsql as $$
+begin
+  raise exception 'audit_log is append-only';
+end;
+$$;
+drop trigger if exists audit_log_append_only on public.audit_log;
+create trigger audit_log_append_only
+before update or delete on public.audit_log
+for each row execute function public.prevent_audit_mutation();
+
+create or replace function public.create_workspace_with_owner(
+  p_name text,
+  p_slug text,
+  p_user_id uuid
+)
+returns public.workspaces
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  created public.workspaces;
+begin
+  if p_user_id is null then
+    raise exception 'authenticated user mismatch';
+  end if;
+  insert into public.workspaces (name, slug, plan)
+  values (trim(p_name), lower(trim(p_slug)), 'starter')
+  returning * into created;
+  insert into public.workspace_memberships (workspace_id, user_id, role)
+  values (created.id, p_user_id, 'owner');
+  return created;
+end;
+$$;
 
 -- Indexes
 create index if not exists idx_workspace_memberships_user on public.workspace_memberships(user_id);
@@ -220,6 +262,21 @@ as $$
   select exists (
     select 1 from public.workspace_memberships
     where workspace_id = target_workspace and user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_workspace_admin(target_workspace uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.workspace_memberships
+    where workspace_id = target_workspace
+      and user_id = auth.uid()
+      and role in ('owner', 'admin')
   );
 $$;
 
@@ -278,6 +335,8 @@ $$;
 
 revoke execute on function public.record_usage(text, uuid, text, text, bigint, text) from public;
 grant execute on function public.record_usage(text, uuid, text, text, bigint, text) to service_role;
+revoke execute on function public.create_workspace_with_owner(text, text, uuid) from public;
+grant execute on function public.create_workspace_with_owner(text, text, uuid) to service_role;
 
 drop policy if exists "demo_all_workspaces" on public.workspaces;
 drop policy if exists "demo_all_employees" on public.employees;
@@ -287,6 +346,7 @@ drop policy if exists "demo_all_tool_calls" on public.tool_calls;
 drop policy if exists "demo_all_audit" on public.audit_log;
 drop policy if exists "members can read memberships" on public.workspace_memberships;
 drop policy if exists "admins can manage memberships" on public.workspace_memberships;
+drop policy if exists "admins can insert memberships" on public.workspace_memberships;
 drop policy if exists "members can access integration credentials" on public.integration_credentials;
 drop policy if exists "admins can access api keys" on public.api_keys;
 drop policy if exists "members can read usage" on public.usage_monthly;
@@ -299,11 +359,11 @@ drop policy if exists "members can read webhook deliveries" on public.webhook_de
 
 create policy "members can read memberships" on public.workspace_memberships
   for select using (user_id = auth.uid() or public.is_workspace_member(workspace_id));
-create policy "users can create their owner membership" on public.workspace_memberships
-  for insert with check (user_id = auth.uid() and role = 'owner');
-create policy "admins can manage memberships" on public.workspace_memberships
-  for update using (public.is_workspace_member(workspace_id))
-  with check (public.is_workspace_member(workspace_id));
+create policy "admins can insert memberships" on public.workspace_memberships
+  for insert with check (public.is_workspace_admin(workspace_id) and role <> 'owner');
+create policy "admins can update memberships" on public.workspace_memberships
+  for update using (public.is_workspace_admin(workspace_id))
+  with check (public.is_workspace_admin(workspace_id) and role <> 'owner');
 create policy "members can access integration credentials" on public.integration_credentials
   for all using (public.is_workspace_member(workspace_id)) with check (public.is_workspace_member(workspace_id));
 create policy "admins can access api keys" on public.api_keys
@@ -327,8 +387,7 @@ create policy "members can read webhook deliveries" on public.webhook_deliveries
 
 create policy "members can read workspaces" on public.workspaces
   for select using (public.is_workspace_member(id));
-create policy "authenticated users can create workspaces" on public.workspaces
-  for insert with check (auth.uid() is not null);
+drop policy if exists "authenticated users can create workspaces" on public.workspaces;
 create policy "members can update workspaces" on public.workspaces
   for update using (public.is_workspace_member(id)) with check (public.is_workspace_member(id));
 

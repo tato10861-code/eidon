@@ -64,7 +64,12 @@ export function isProviderConfigured(id: string) {
   return Boolean(process.env[p.clientIdEnv] && process.env[p.clientSecretEnv]);
 }
 
-export function buildAuthorizeUrl(id: string, redirectUri: string, state: string) {
+export function buildAuthorizeUrl(
+  id: string,
+  redirectUri: string,
+  state: string,
+  codeChallenge?: string,
+) {
   const p = oauthProviders[id];
   if (!p) return null;
   const params = new URLSearchParams({
@@ -74,14 +79,28 @@ export function buildAuthorizeUrl(id: string, redirectUri: string, state: string
     scope: p.scopes.join(" "),
     state,
   });
+  if (codeChallenge) {
+    params.set("code_challenge", codeChallenge);
+    params.set("code_challenge_method", "S256");
+  }
   return `${p.authorizeUrl}?${params.toString()}`;
 }
 
 function stateSecret() {
-  return process.env.EIDON_OAUTH_STATE_SECRET ?? "development-only-oauth-state-secret";
+  return process.env.EIDON_OAUTH_STATE_SECRET;
+}
+
+export function createCodeVerifier() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+export function createCodeChallenge(verifier: string) {
+  return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
 
 export function createOAuthState(provider: string, workspaceId: string) {
+  const secret = stateSecret();
+  if (!secret) return null;
   const payload = Buffer.from(
     JSON.stringify({
       provider,
@@ -90,15 +109,17 @@ export function createOAuthState(provider: string, workspaceId: string) {
       nonce: crypto.randomUUID(),
     }),
   ).toString("base64url");
-  const signature = crypto.createHmac("sha256", stateSecret()).update(payload).digest("base64url");
+  const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
   return `${payload}.${signature}`;
 }
 
 export function verifyOAuthState(value: string | null, provider: string, workspaceId: string) {
   if (!value) return false;
+  const secret = stateSecret();
+  if (!secret) return false;
   const [payload, signature] = value.split(".");
   if (!payload || !signature) return false;
-  const expected = crypto.createHmac("sha256", stateSecret()).update(payload).digest("base64url");
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
   if (
     signature.length !== expected.length ||
     !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))

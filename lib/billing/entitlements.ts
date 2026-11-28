@@ -21,20 +21,45 @@ async function getPlan(workspaceId: string): Promise<PlanId> {
   if (supabase) {
     const { data } = await supabase
       .from("workspaces")
-      .select("plan")
+      .select("plan, billing_subscriptions(status, plan)")
       .eq("id", workspaceId)
       .maybeSingle();
-    return normalizePlan(data?.plan);
+    const subscription = Array.isArray(data?.billing_subscriptions)
+      ? data.billing_subscriptions[0]
+      : data?.billing_subscriptions;
+    return resolveEffectivePlan(data?.plan, subscription?.status, subscription?.plan);
   }
   const sql = getNeon();
   if (sql) {
-    const rows = await sql`select plan from workspaces where id = ${workspaceId} limit 1`;
-    return normalizePlan((rows as { plan?: string }[])[0]?.plan);
+    const rows = await sql`
+      select w.plan, s.status as subscription_status, s.plan as subscription_plan
+      from workspaces w left join billing_subscriptions s on s.workspace_id = w.id
+      where w.id = ${workspaceId} limit 1
+    `;
+    const row = (
+      rows as { plan?: string; subscription_status?: string; subscription_plan?: string }[]
+    )[0];
+    return resolveEffectivePlan(row?.plan, row?.subscription_status, row?.subscription_plan);
   }
   return "starter";
 }
 
+function resolveEffectivePlan(
+  workspacePlan: unknown,
+  subscriptionStatus: unknown,
+  subscriptionPlan: unknown,
+): PlanId {
+  const candidate = normalizePlan(subscriptionPlan ?? workspacePlan);
+  if (candidate === "starter") return "starter";
+  return subscriptionStatus === "active" || subscriptionStatus === "trialing"
+    ? candidate
+    : "starter";
+}
+
 export async function assertEntitled(workspaceId: string, metric: BillableMetric, increment = 1) {
+  if (!Number.isInteger(increment) || increment <= 0) {
+    throw new RangeError("Entitlement increment must be a positive integer.");
+  }
   const plan = await getPlan(workspaceId);
   const limit = PLAN_LIMITS[plan][metric];
   if (limit === null) return { plan, current: 0, limit: null };

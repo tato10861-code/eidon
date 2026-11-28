@@ -4,6 +4,7 @@ import { getNeon } from "@/lib/neon";
 import crypto from "node:crypto";
 import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
 import { validateWebhookTarget } from "@/lib/webhooks";
+import { encryptSecret } from "@/lib/security/secrets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,12 +92,24 @@ export async function POST(request: NextRequest) {
   }
 
   const id = `wh_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
-  const signingSecret = secret ?? `whsec_${crypto.randomBytes(24).toString("base64url")}`;
+  if (secret !== undefined && (typeof secret !== "string" || secret.length < 32)) {
+    return Response.json({ error: "secret must contain at least 32 characters." }, { status: 400 });
+  }
+  const signingSecret = secret ?? `whsec_${crypto.randomBytes(32).toString("base64url")}`;
+  let encryptedSecret: string;
+  try {
+    encryptedSecret = encryptSecret(signingSecret);
+  } catch {
+    return Response.json(
+      { error: "Webhook secret encryption is not configured." },
+      { status: 503 },
+    );
+  }
   const neon = getNeon();
   if (neon) {
     await neon`
       INSERT INTO webhooks (id, workspace_id, url, events, signing_secret, active)
-      VALUES (${id}, ${workspaceId}, ${url}, ${JSON.stringify(events)}, ${signingSecret}, true)
+      VALUES (${id}, ${workspaceId}, ${url}, ${JSON.stringify(events)}, ${encryptedSecret}, true)
     `;
   }
 

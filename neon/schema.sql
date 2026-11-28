@@ -93,8 +93,12 @@ create table if not exists approval_tokens (
 create table if not exists billing_events (
   id text primary key,
   type text not null,
+  processed boolean not null default false,
+  last_error text,
   created_at timestamptz not null default now()
 );
+alter table billing_events add column if not exists processed boolean not null default false;
+alter table billing_events add column if not exists last_error text;
 
 create table if not exists employees (
   id uuid primary key default gen_random_uuid(),
@@ -146,6 +150,39 @@ create table if not exists audit_log (
   payload jsonb,
   created_at timestamptz not null default now()
 );
+alter table audit_log add column if not exists schema_version integer not null default 1;
+alter table audit_log add column if not exists request_id text;
+alter table audit_log add column if not exists actor_type text;
+create or replace function prevent_audit_mutation()
+returns trigger language plpgsql as $$
+begin
+  raise exception 'audit_log is append-only';
+end;
+$$;
+drop trigger if exists audit_log_append_only on audit_log;
+create trigger audit_log_append_only
+before update or delete on audit_log
+for each row execute function prevent_audit_mutation();
+
+create or replace function create_workspace_with_owner(
+  p_name text,
+  p_slug text,
+  p_user_id uuid
+)
+returns workspaces
+language plpgsql
+as $$
+declare
+  created workspaces;
+begin
+  insert into workspaces (name, slug, plan)
+  values (trim(p_name), lower(trim(p_slug)), 'starter')
+  returning * into created;
+  insert into workspace_memberships (workspace_id, user_id, role)
+  values (created.id, p_user_id, 'owner');
+  return created;
+end;
+$$;
 
 create table if not exists webhooks (
   id text primary key,

@@ -19,6 +19,7 @@ export async function GET(
   const state = request.nextUrl.searchParams.get("state");
   const workspaceId = request.nextUrl.searchParams.get("workspaceId") ?? "";
   const storedState = request.cookies.get("eidon_oauth_state")?.value ?? null;
+  const verifier = request.cookies.get("eidon_oauth_verifier")?.value ?? null;
   if (!workspaceId || !verifyOAuthState(state, id, workspaceId) || state !== storedState) {
     return NextResponse.json({ error: "Invalid or expired OAuth state." }, { status: 400 });
   }
@@ -38,6 +39,11 @@ export async function GET(
     return NextResponse.json({ error: "OAuth authorization code is missing." }, { status: 400 });
   if (!isProviderConfigured(id))
     return NextResponse.json({ error: "OAuth provider is not configured." }, { status: 503 });
+  if (!verifier)
+    return NextResponse.json(
+      { error: "OAuth PKCE verifier is missing or expired." },
+      { status: 400 },
+    );
   if (!process.env.EIDON_TOKEN_ENCRYPTION_KEY)
     return NextResponse.json({ error: "Token encryption is not configured." }, { status: 503 });
 
@@ -47,6 +53,7 @@ export async function GET(
     client_id: process.env[provider.clientIdEnv] ?? "",
     client_secret: process.env[provider.clientSecretEnv] ?? "",
     redirect_uri: `${request.nextUrl.origin}/api/oauth/${id}/callback?workspaceId=${encodeURIComponent(workspaceId)}`,
+    code_verifier: verifier,
   });
   const response = await fetch(provider.tokenUrl, {
     method: "POST",
@@ -102,6 +109,11 @@ export async function GET(
 
   const result = NextResponse.json({ connected: true, provider: id, workspaceId });
   result.cookies.set("eidon_oauth_state", "", {
+    httpOnly: true,
+    expires: new Date(0),
+    path: `/api/oauth/${id}`,
+  });
+  result.cookies.set("eidon_oauth_verifier", "", {
     httpOnly: true,
     expires: new Date(0),
     path: `/api/oauth/${id}`,

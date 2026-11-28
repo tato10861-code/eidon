@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { getNeon } from "@/lib/neon";
 import { getSupabase } from "@/lib/supabase";
 
@@ -17,6 +18,8 @@ function redact(value: unknown): unknown {
 export async function writeAudit(input: {
   workspaceId: string;
   actor: string;
+  actorType?: "session" | "api_key" | "system";
+  requestId?: string;
   action: string;
   target?: string;
   outcome?: "requested" | "approved" | "rejected" | "executed" | "failed";
@@ -35,14 +38,17 @@ export async function writeAudit(input: {
         action: input.action,
         target: input.target ?? null,
         payload,
+        schema_version: 1,
+        request_id: input.requestId ?? crypto.randomUUID(),
+        actor_type: input.actorType ?? "system",
       });
       return;
     }
     const sql = getNeon();
     if (sql) {
       await sql`
-        insert into audit_log (workspace_id, actor, action, target, payload)
-        values (${input.workspaceId}, ${input.actor}, ${input.action}, ${input.target ?? null}, ${JSON.stringify(payload)}::jsonb)
+        insert into audit_log (workspace_id, actor, actor_type, action, target, payload, schema_version, request_id)
+        values (${input.workspaceId}, ${input.actor}, ${input.actorType ?? "system"}, ${input.action}, ${input.target ?? null}, ${JSON.stringify(payload)}::jsonb, 1, ${input.requestId ?? crypto.randomUUID()})
       `;
     }
   } catch {
