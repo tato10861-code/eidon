@@ -13,6 +13,7 @@ jobs:
     name: Record deployment
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    if: github.event_name == 'push'
     env:
       IS_PROD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       BRANCH_SLUG: ${{ github.head_ref || github.ref_name }}
