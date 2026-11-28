@@ -22,6 +22,7 @@ next-env.d.ts
 *.egg-info/
 dist/
 .hatch/
+**/.pytest_cache/
 
 # misc
 .DS_Store
