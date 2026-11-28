@@ -54,8 +54,9 @@ export async function POST(request: NextRequest) {
     ? body.scopes
     : ["chat:write", "chat:read", "conversations:read", "employees:read"];
 
+  let principal;
   try {
-    await authorizeWorkspace(request, workspaceId, "admin");
+    principal = await authorizeWorkspace(request, workspaceId, "admin");
   } catch (error) {
     return accessError(error);
   }
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
   }
   await writeAudit({
     workspaceId,
-    actor: "workspace-admin",
+    actor: principal.subject,
     action: "api_key.created",
     target: record.id,
     outcome: "executed",
@@ -152,8 +153,9 @@ export async function DELETE(request: NextRequest) {
   };
   if (!persisted.workspaceId)
     return Response.json({ error: "workspaceId is required." }, { status: 400 });
+  let principal;
   try {
-    await authorizeWorkspace(request, persisted.workspaceId, "admin");
+    principal = await authorizeWorkspace(request, persisted.workspaceId, "admin");
   } catch (error) {
     return accessError(error);
   }
@@ -168,7 +170,7 @@ export async function DELETE(request: NextRequest) {
   if (!deleted) return Response.json({ error: "Key not found." }, { status: 404 });
   await writeAudit({
     workspaceId: persisted.workspaceId,
-    actor: "workspace-admin",
+    actor: principal.subject,
     action: "api_key.revoked",
     target: id,
     outcome: "executed",

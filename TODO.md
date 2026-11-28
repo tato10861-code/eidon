@@ -33,3 +33,18 @@
 - Security, privacy, DPA, subprocessors, data deletion, support/SLA, and deployment claims match implemented behavior.
 - The repository passes typecheck, lint, tests, build, and security-focused regression checks.
 - A deployment runbook and pilot pricing/packaging proposal are included.
+
+## Current evidence and remaining blockers — 2026-11-28
+
+The repository now includes durable API-key lifecycle controls, signed single-use approvals,
+centralized redacted audit logging, SSRF-hardened webhook delivery, Stripe signature/idempotency
+handling, Stripe Checkout session creation, and usage-event idempotency. The latest local evidence
+is 62 passing tests, a passing TypeScript check, a successful production build, and lint with the
+existing warning baseline only.
+
+The remaining enterprise-readiness work is explicit: make the Supabase usage increment path atomic
+under concurrency, complete billing-event parity if Stripe is used with Supabase rather than Neon,
+finish deployment verification for the latest commit, and obtain external legal review of the
+commercial license, DPA, SLA, and compliance language. The latest Vercel deployment attempt was
+blocked by the account's daily deployment quota, so the newest commit must not be described as live
+in Production until a READY deployment for its SHA is confirmed.
