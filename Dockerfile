@@ -7,6 +7,8 @@ COPY package*.json ./
 RUN npm ci --ignore-scripts
 
 COPY . .
+ARG DOCKER_BUILD=1
+ENV DOCKER_BUILD=$DOCKER_BUILD
 RUN npm run build
 
 # ── Production stage ───────────────────────────────────────────────────────────
