@@ -39,6 +39,16 @@ function buildSpec(baseUrl: string) {
       { name: "Compliance", description: "GDPR/CCPA data export" },
       { name: "Evals", description: "AI response evaluation framework" },
       { name: "Billing", description: "Subscription and usage management" },
+      { name: "FineTuning", description: "Model fine-tuning job management" },
+      { name: "Notifications", description: "Notification preferences and delivery" },
+      { name: "Memory", description: "Persistent conversation memory" },
+      { name: "Budgets", description: "Spending budget controls" },
+      { name: "AuditExport", description: "Audit log export (JSON/NDJSON)" },
+      { name: "Integrations", description: "Third-party integration connectors" },
+      { name: "KnowledgeBase", description: "RAG document management" },
+      { name: "DataExport", description: "GDPR/CCPA data portability" },
+      { name: "Invitations", description: "Workspace email invitations" },
+      { name: "UsageAnalytics", description: "Token and cost analytics time-series" },
     ],
     components: {
       securitySchemes: {
@@ -470,6 +480,400 @@ function buildSpec(baseUrl: string) {
         },
         delete: { tags: ["SCIM"], summary: "Deprovision a user", security: [{ ScimToken: [] }] },
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      },
+
+      // ── Fine-Tuning ───────────────────────────────────────────────────────
+      "/api/fine-tuning": {
+        get: {
+          tags: ["FineTuning"],
+          summary: "List fine-tuning jobs",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            {
+              name: "status",
+              in: "query",
+              schema: {
+                type: "string",
+                enum: ["pending", "queued", "running", "completed", "failed", "cancelled"],
+              },
+            },
+          ],
+          responses: {
+            "200": { description: "Fine-tuning jobs list" },
+            "401": { description: "Unauthorized" },
+          },
+        },
+        post: {
+          tags: ["FineTuning"],
+          summary: "Create a fine-tuning job",
+          security: [{ AdminKey: [] }],
+          responses: {
+            "201": { description: "Job created" },
+            "422": { description: "Validation error" },
+          },
+        },
+        delete: {
+          tags: ["FineTuning"],
+          summary: "Cancel a fine-tuning job",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "id", in: "query", required: true, schema: { type: "string" } },
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Job cancelled" } },
+        },
+      },
+
+      // ── Notifications ─────────────────────────────────────────────────────
+      "/api/notifications": {
+        get: {
+          tags: ["Notifications"],
+          summary: "Get notification preferences",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Notification preferences" } },
+        },
+        patch: {
+          tags: ["Notifications"],
+          summary: "Update notification preferences",
+          security: [{ AdminKey: [] }],
+          responses: { "200": { description: "Updated" } },
+        },
+        post: {
+          tags: ["Notifications"],
+          summary: "Send a notification",
+          security: [{ AdminKey: [] }],
+          responses: { "201": { description: "Notification sent" } },
+        },
+      },
+
+      // ── Conversation Memory ───────────────────────────────────────────────
+      "/api/conversations/memory": {
+        get: {
+          tags: ["Memory"],
+          summary: "Retrieve conversation memory",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            { name: "employeeId", in: "query", schema: { type: "string" } },
+            { name: "userId", in: "query", schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Memory entries" } },
+        },
+        post: {
+          tags: ["Memory"],
+          summary: "Store a memory entry",
+          security: [{ AdminKey: [] }],
+          responses: { "201": { description: "Memory stored" } },
+        },
+        delete: {
+          tags: ["Memory"],
+          summary: "Delete a memory entry",
+          security: [{ AdminKey: [] }],
+          responses: { "200": { description: "Memory deleted" } },
+        },
+      },
+
+      // ── Spending Budgets ──────────────────────────────────────────────────
+      "/api/workspaces/budgets": {
+        get: {
+          tags: ["Budgets"],
+          summary: "List spending budgets",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Budget list" } },
+        },
+        post: {
+          tags: ["Budgets"],
+          summary: "Create or update a budget",
+          security: [{ AdminKey: [] }],
+          responses: { "201": { description: "Budget created" } },
+        },
+        delete: {
+          tags: ["Budgets"],
+          summary: "Delete a budget",
+          security: [{ AdminKey: [] }],
+          responses: { "200": { description: "Budget deleted" } },
+        },
+      },
+
+      // ── Audit Export ──────────────────────────────────────────────────────
+      "/api/audit/export": {
+        get: {
+          tags: ["AuditExport"],
+          summary: "Export audit log entries",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            { name: "format", in: "query", schema: { type: "string", enum: ["json", "ndjson"] } },
+            {
+              name: "prefix",
+              in: "query",
+              schema: { type: "string", description: "Filter by action prefix" },
+            },
+            { name: "from", in: "query", schema: { type: "string", format: "date-time" } },
+            { name: "to", in: "query", schema: { type: "string", format: "date-time" } },
+          ],
+          responses: {
+            "200": { description: "Audit log export" },
+            "206": { description: "Streaming NDJSON export" },
+          },
+        },
+      },
+
+      // ── Integrations ──────────────────────────────────────────────────────
+      "/api/integrations": {
+        get: {
+          tags: ["Integrations"],
+          summary: "List workspace integrations",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            {
+              name: "provider",
+              in: "query",
+              schema: {
+                type: "string",
+                enum: [
+                  "slack",
+                  "teams",
+                  "jira",
+                  "github",
+                  "zendesk",
+                  "pagerduty",
+                  "linear",
+                  "salesforce",
+                  "hubspot",
+                  "intercom",
+                  "webhook",
+                ],
+              },
+            },
+          ],
+          responses: { "200": { description: "Integrations list" } },
+        },
+        post: {
+          tags: ["Integrations"],
+          summary: "Create or update an integration",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            {
+              name: "action",
+              in: "query",
+              schema: { type: "string", enum: ["test"], description: "Send a test delivery" },
+            },
+          ],
+          responses: {
+            "201": { description: "Integration created" },
+            "200": { description: "Test delivery result" },
+          },
+        },
+        delete: {
+          tags: ["Integrations"],
+          summary: "Remove an integration",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "id", in: "query", required: true, schema: { type: "string" } },
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Integration removed" } },
+        },
+      },
+
+      // ── Knowledge Base ────────────────────────────────────────────────────
+      "/api/knowledge-base": {
+        get: {
+          tags: ["KnowledgeBase"],
+          summary: "List knowledge base documents",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", schema: { type: "string" } },
+            {
+              name: "id",
+              in: "query",
+              schema: { type: "string", description: "Fetch single document with full content" },
+            },
+            {
+              name: "type",
+              in: "query",
+              schema: {
+                type: "string",
+                enum: [
+                  "text",
+                  "markdown",
+                  "faq",
+                  "policy",
+                  "procedure",
+                  "product",
+                  "support",
+                  "code",
+                  "json",
+                  "csv",
+                ],
+              },
+            },
+            { name: "search", in: "query", schema: { type: "string" } },
+            {
+              name: "status",
+              in: "query",
+              schema: { type: "string", enum: ["active", "processing", "archived", "failed"] },
+            },
+          ],
+          responses: { "200": { description: "Documents list or single document" } },
+        },
+        post: {
+          tags: ["KnowledgeBase"],
+          summary: "Create or update a document",
+          security: [{ AdminKey: [] }],
+          responses: { "201": { description: "Document created" } },
+        },
+        delete: {
+          tags: ["KnowledgeBase"],
+          summary: "Archive or delete a document",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "id", in: "query", required: true, schema: { type: "string" } },
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            {
+              name: "hard",
+              in: "query",
+              schema: { type: "boolean", description: "Permanently delete instead of archive" },
+            },
+          ],
+          responses: { "200": { description: "Archived or deleted" } },
+        },
+      },
+
+      // ── Data Export (GDPR) ────────────────────────────────────────────────
+      "/api/data-export": {
+        get: {
+          tags: ["DataExport"],
+          summary: "List or check export jobs",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            {
+              name: "jobId",
+              in: "query",
+              schema: { type: "string", description: "Poll job status" },
+            },
+            {
+              name: "entity",
+              in: "query",
+              schema: {
+                type: "string",
+                enum: [
+                  "members",
+                  "employees",
+                  "conversations",
+                  "audit_log",
+                  "knowledge_docs",
+                  "integrations",
+                  "budgets",
+                  "fine_tuning_jobs",
+                ],
+                description: "Streaming partial export",
+              },
+            },
+          ],
+          responses: { "200": { description: "Export jobs or entity data" } },
+        },
+        post: {
+          tags: ["DataExport"],
+          summary: "Request a full data export",
+          security: [{ AdminKey: [] }],
+          responses: {
+            "200": { description: "Inline export (Content-Disposition: attachment)" },
+            "202": { description: "Async export job created" },
+          },
+        },
+      },
+
+      // ── Workspace Invitations ─────────────────────────────────────────────
+      "/api/workspaces/invitations": {
+        get: {
+          tags: ["Invitations"],
+          summary: "List workspace invitations",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            {
+              name: "status",
+              in: "query",
+              schema: { type: "string", enum: ["pending", "accepted", "expired", "revoked"] },
+            },
+            { name: "email", in: "query", schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Invitation list" } },
+        },
+        post: {
+          tags: ["Invitations"],
+          summary: "Send a workspace invitation",
+          security: [{ AdminKey: [] }],
+          responses: {
+            "201": { description: "Invitation created with token and acceptUrl" },
+            "409": { description: "Pending invitation already exists for this email" },
+          },
+        },
+        patch: {
+          tags: ["Invitations"],
+          summary: "Accept an invitation via token",
+          parameters: [{ name: "token", in: "query", required: true, schema: { type: "string" } }],
+          responses: {
+            "200": { description: "Accepted — member record created" },
+            "410": { description: "Expired or already used" },
+          },
+        },
+        delete: {
+          tags: ["Invitations"],
+          summary: "Revoke a pending invitation",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "id", in: "query", required: true, schema: { type: "string" } },
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Invitation revoked" } },
+        },
+      },
+
+      // ── Usage Analytics ───────────────────────────────────────────────────
+      "/api/workspaces/usage": {
+        get: {
+          tags: ["UsageAnalytics"],
+          summary: "Get usage time-series analytics",
+          security: [{ AdminKey: [] }],
+          parameters: [
+            { name: "workspaceId", in: "query", required: true, schema: { type: "string" } },
+            {
+              name: "period",
+              in: "query",
+              schema: { type: "string", enum: ["7d", "30d", "90d", "1y"], default: "30d" },
+            },
+            {
+              name: "granularity",
+              in: "query",
+              schema: { type: "string", enum: ["day", "week", "month"], default: "day" },
+            },
+            { name: "employeeId", in: "query", schema: { type: "string" } },
+            { name: "model", in: "query", schema: { type: "string" } },
+          ],
+          responses: {
+            "200": {
+              description: "Time-series with summary, byModel, and byEmployee breakdown",
+            },
+          },
+        },
+        post: {
+          tags: ["UsageAnalytics"],
+          summary: "Record usage events (batch, max 1000)",
+          security: [{ AdminKey: [] }],
+          responses: { "201": { description: "Events recorded" } },
+        },
       },
     },
   };
