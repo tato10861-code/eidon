@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const CONFIG_PATH = join(homedir(), ".eidon", "config.json");
 
 interface Config {
@@ -213,6 +213,353 @@ program
         const data = await res.json();
         console.log(JSON.stringify(data, null, 2));
       }),
+  );
+
+// ─── Members ────────────────────────────────────────────────────────────────
+
+program
+  .command("members")
+  .description("Manage workspace members (RBAC)")
+  .addCommand(
+    new Command("list")
+      .description("List workspace members")
+      .requiredOption("-w, --workspace <id>", "Workspace ID")
+      .option("--admin-key <key>", "Admin API key (overrides EIDON_ADMIN_KEY env)")
+      .action(async (cmdOpts: { workspace: string; adminKey?: string }) => {
+        const opts = program.opts<{ url?: string }>();
+        const baseUrl = getBaseUrl(opts);
+        const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+        if (!adminKey) {
+          console.error("Error: admin key required. Set EIDON_ADMIN_KEY or use --admin-key");
+          process.exit(1);
+        }
+        const res = await fetch(
+          `${baseUrl}/api/workspaces/members?workspaceId=${encodeURIComponent(cmdOpts.workspace)}`,
+          { headers: { "x-admin-key": adminKey } },
+        );
+        const data = (await res.json()) as {
+          members: { email: string; role: string; joined_at: string | null }[];
+        };
+        if (!res.ok) {
+          console.error(JSON.stringify(data));
+          process.exit(1);
+        }
+        console.log("\nMembers:");
+        for (const m of data.members ?? []) {
+          console.log(`  ${m.email.padEnd(32)} ${m.role.padEnd(10)} ${m.joined_at ?? "pending"}`);
+        }
+      }),
+  )
+  .addCommand(
+    new Command("invite")
+      .description("Invite a member to a workspace")
+      .requiredOption("-w, --workspace <id>", "Workspace ID")
+      .requiredOption("-e, --email <email>", "Email address")
+      .option("-r, --role <role>", "Role (admin|member|viewer)", "member")
+      .option("--admin-key <key>", "Admin API key")
+      .action(
+        async (cmdOpts: { workspace: string; email: string; role: string; adminKey?: string }) => {
+          const opts = program.opts<{ url?: string }>();
+          const baseUrl = getBaseUrl(opts);
+          const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+          if (!adminKey) {
+            console.error("Error: admin key required");
+            process.exit(1);
+          }
+          const res = await fetch(`${baseUrl}/api/workspaces/members`, {
+            method: "POST",
+            headers: { "x-admin-key": adminKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workspaceId: cmdOpts.workspace,
+              email: cmdOpts.email,
+              role: cmdOpts.role,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.error(JSON.stringify(data));
+            process.exit(1);
+          }
+          console.log(`✓ Invited ${cmdOpts.email} as ${cmdOpts.role}`);
+        },
+      ),
+  );
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
+
+program
+  .command("audit")
+  .description("View workspace audit log")
+  .requiredOption("-w, --workspace <id>", "Workspace ID")
+  .option("--limit <n>", "Number of events (max 100)", "25")
+  .option("--action <filter>", "Filter by action type")
+  .option("--admin-key <key>", "Admin API key")
+  .action(
+    async (cmdOpts: { workspace: string; limit: string; action?: string; adminKey?: string }) => {
+      const opts = program.opts<{ url?: string }>();
+      const baseUrl = getBaseUrl(opts);
+      const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+      if (!adminKey) {
+        console.error("Error: admin key required");
+        process.exit(1);
+      }
+      const params = new URLSearchParams({
+        workspaceId: cmdOpts.workspace,
+        limit: cmdOpts.limit,
+        ...(cmdOpts.action ? { action: cmdOpts.action } : {}),
+      });
+      const res = await fetch(`${baseUrl}/api/audit?${params}`, {
+        headers: { "x-admin-key": adminKey },
+      });
+      const data = (await res.json()) as {
+        events: { action: string; actor: string; target: string | null; created_at: string }[];
+      };
+      if (!res.ok) {
+        console.error(JSON.stringify(data));
+        process.exit(1);
+      }
+      console.log("\nAudit log:");
+      for (const e of data.events ?? []) {
+        const ts = new Date(e.created_at).toISOString().replace("T", " ").slice(0, 19);
+        console.log(`  ${ts}  ${e.action.padEnd(28)} ${e.actor.padEnd(20)} ${e.target ?? ""}`);
+      }
+    },
+  );
+
+// ─── API keys ────────────────────────────────────────────────────────────────
+
+program
+  .command("keys")
+  .description("Manage API keys")
+  .addCommand(
+    new Command("list")
+      .description("List API keys for a workspace")
+      .requiredOption("-w, --workspace <id>", "Workspace ID")
+      .option("--admin-key <key>", "Admin API key")
+      .action(async (cmdOpts: { workspace: string; adminKey?: string }) => {
+        const opts = program.opts<{ url?: string }>();
+        const baseUrl = getBaseUrl(opts);
+        const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+        if (!adminKey) {
+          console.error("Error: admin key required");
+          process.exit(1);
+        }
+        const res = await fetch(
+          `${baseUrl}/api/keys?workspaceId=${encodeURIComponent(cmdOpts.workspace)}`,
+          { headers: { "x-admin-key": adminKey } },
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          console.error(JSON.stringify(data));
+          process.exit(1);
+        }
+        console.log(JSON.stringify(data, null, 2));
+      }),
+  )
+  .addCommand(
+    new Command("create")
+      .description("Create an API key")
+      .requiredOption("-w, --workspace <id>", "Workspace ID")
+      .requiredOption("--name <name>", "Key name / label")
+      .option("--scopes <scopes>", "Comma-separated scopes", "chat:read,chat:write")
+      .option("--admin-key <key>", "Admin API key")
+      .action(
+        async (cmdOpts: { workspace: string; name: string; scopes: string; adminKey?: string }) => {
+          const opts = program.opts<{ url?: string }>();
+          const baseUrl = getBaseUrl(opts);
+          const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+          if (!adminKey) {
+            console.error("Error: admin key required");
+            process.exit(1);
+          }
+          const res = await fetch(`${baseUrl}/api/keys`, {
+            method: "POST",
+            headers: { "x-admin-key": adminKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workspaceId: cmdOpts.workspace,
+              name: cmdOpts.name,
+              scopes: cmdOpts.scopes.split(","),
+            }),
+          });
+          const data = (await res.json()) as { key?: string; id?: string };
+          if (!res.ok) {
+            console.error(JSON.stringify(data));
+            process.exit(1);
+          }
+          if (data.key) {
+            console.log(
+              `✓ API key created. Store this — it won't be shown again:\n\n  ${data.key}\n`,
+            );
+          } else {
+            console.log(JSON.stringify(data, null, 2));
+          }
+        },
+      ),
+  );
+
+// ─── Compliance export ───────────────────────────────────────────────────────
+
+program
+  .command("export")
+  .description("Run a GDPR/CCPA data export (DSAR)")
+  .requiredOption("-w, --workspace <id>", "Workspace ID")
+  .requiredOption("--requested-by <actor>", "Who is requesting (email/id)")
+  .option(
+    "--scope <scope>",
+    "Comma-separated: conversations,employees,audit,members,api_keys,usage",
+    "conversations,employees,audit,members,api_keys,usage",
+  )
+  .option("--out <file>", "Output file path (default: stdout)")
+  .option("--admin-key <key>", "Admin API key")
+  .action(
+    async (cmdOpts: {
+      workspace: string;
+      requestedBy: string;
+      scope: string;
+      out?: string;
+      adminKey?: string;
+    }) => {
+      const opts = program.opts<{ url?: string }>();
+      const baseUrl = getBaseUrl(opts);
+      const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+      if (!adminKey) {
+        console.error("Error: admin key required");
+        process.exit(1);
+      }
+      const res = await fetch(`${baseUrl}/api/compliance/export`, {
+        method: "POST",
+        headers: { "x-admin-key": adminKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: cmdOpts.workspace,
+          requestedBy: cmdOpts.requestedBy,
+          scope: cmdOpts.scope.split(","),
+        }),
+      });
+      if (!res.ok) {
+        console.error(`Error: HTTP ${res.status}`);
+        process.exit(1);
+      }
+      const json = JSON.stringify(await res.json(), null, 2);
+      if (cmdOpts.out) {
+        const { writeFileSync } = await import("node:fs");
+        writeFileSync(cmdOpts.out, json);
+        console.log(`✓ Export written to ${cmdOpts.out}`);
+      } else {
+        console.log(json);
+      }
+    },
+  );
+
+// ─── Security ────────────────────────────────────────────────────────────────
+
+program
+  .command("security")
+  .description("Manage workspace security settings")
+  .addCommand(
+    new Command("allowlist")
+      .description("Get IP allowlist for a workspace")
+      .requiredOption("-w, --workspace <id>", "Workspace ID")
+      .option("--admin-key <key>", "Admin API key")
+      .action(async (cmdOpts: { workspace: string; adminKey?: string }) => {
+        const opts = program.opts<{ url?: string }>();
+        const baseUrl = getBaseUrl(opts);
+        const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+        if (!adminKey) {
+          console.error("Error: admin key required");
+          process.exit(1);
+        }
+        const res = await fetch(
+          `${baseUrl}/api/security/allowlist?workspaceId=${encodeURIComponent(cmdOpts.workspace)}`,
+          { headers: { "x-admin-key": adminKey } },
+        );
+        const data = (await res.json()) as { allowlist: string[]; unrestricted: boolean };
+        if (!res.ok) {
+          console.error(JSON.stringify(data));
+          process.exit(1);
+        }
+        if (data.unrestricted) {
+          console.log("IP allowlist: unrestricted (all IPs allowed)");
+        } else {
+          console.log("Allowed IPs/CIDRs:");
+          for (const ip of data.allowlist) console.log(`  ${ip}`);
+        }
+      }),
+  )
+  .addCommand(
+    new Command("sessions")
+      .description("List or revoke active sessions")
+      .requiredOption("-w, --workspace <id>", "Workspace ID")
+      .option("--revoke-all", "Revoke all sessions in the workspace")
+      .option("--revoke <id>", "Revoke a specific session by ID")
+      .option("--admin-key <key>", "Admin API key")
+      .action(
+        async (cmdOpts: {
+          workspace: string;
+          revokeAll?: boolean;
+          revoke?: string;
+          adminKey?: string;
+        }) => {
+          const opts = program.opts<{ url?: string }>();
+          const baseUrl = getBaseUrl(opts);
+          const adminKey = cmdOpts.adminKey ?? process.env.EIDON_ADMIN_KEY;
+          if (!adminKey) {
+            console.error("Error: admin key required");
+            process.exit(1);
+          }
+
+          if (cmdOpts.revoke) {
+            const res = await fetch(
+              `${baseUrl}/api/security/sessions?sessionId=${encodeURIComponent(cmdOpts.revoke)}`,
+              { method: "DELETE", headers: { "x-admin-key": adminKey } },
+            );
+            const data = await res.json();
+            if (!res.ok) {
+              console.error(JSON.stringify(data));
+              process.exit(1);
+            }
+            console.log(`✓ Session ${cmdOpts.revoke} revoked`);
+            return;
+          }
+
+          if (cmdOpts.revokeAll) {
+            const res = await fetch(
+              `${baseUrl}/api/security/sessions?workspaceId=${encodeURIComponent(cmdOpts.workspace)}&all=1`,
+              { method: "DELETE", headers: { "x-admin-key": adminKey } },
+            );
+            const data = (await res.json()) as { revoked?: number };
+            if (!res.ok) {
+              console.error(JSON.stringify(data));
+              process.exit(1);
+            }
+            console.log(`✓ Revoked ${data.revoked ?? 0} sessions`);
+            return;
+          }
+
+          const res = await fetch(
+            `${baseUrl}/api/security/sessions?workspaceId=${encodeURIComponent(cmdOpts.workspace)}`,
+            { headers: { "x-admin-key": adminKey } },
+          );
+          const data = (await res.json()) as {
+            sessions: {
+              id: string;
+              user_id: string;
+              ip_address: string | null;
+              last_active_at: string;
+            }[];
+          };
+          if (!res.ok) {
+            console.error(JSON.stringify(data));
+            process.exit(1);
+          }
+          console.log("\nActive sessions:");
+          for (const s of data.sessions ?? []) {
+            const ts = new Date(s.last_active_at).toISOString().slice(0, 19).replace("T", " ");
+            console.log(
+              `  ${s.id.slice(0, 8)}…  ${s.user_id.slice(0, 8)}…  ${(s.ip_address ?? "unknown").padEnd(16)} last-active: ${ts}`,
+            );
+          }
+        },
+      ),
   );
 
 program.parse();
