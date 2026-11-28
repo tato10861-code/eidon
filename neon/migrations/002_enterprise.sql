@@ -161,3 +161,29 @@ create index if not exists idx_rate_limit_log_key_time on rate_limit_log(key, cr
 
 -- Auto-purge rows older than 5 minutes to keep the table small
 -- (actual cleanup handled by a periodic job or pg_cron)
+
+-- ─── Workspace settings column ───────────────────────────────────────────────
+
+alter table workspaces
+  add column if not exists settings jsonb not null default '{}';
+
+-- ─── Employee templates ───────────────────────────────────────────────────────
+
+create table if not exists employee_templates (
+  id            text primary key,
+  workspace_id  text references workspaces(id) on delete cascade,
+  name          text not null,
+  description   text,
+  role          text not null,
+  system_prompt text not null,
+  model         text,
+  temperature   real,
+  tools         jsonb not null default '[]',
+  tags          jsonb not null default '[]',
+  is_public     boolean not null default false,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists idx_employee_templates_workspace on employee_templates(workspace_id);
+create index if not exists idx_employee_templates_public on employee_templates(is_public) where is_public = true;
