@@ -120,14 +120,16 @@ export async function persistUsage(
   const supabase = await getSupabase();
   if (supabase) {
     if (eventId) {
-      const { error } = await supabase.from("usage_events").insert({
-        id: eventId,
-        workspace_id: workspaceId,
-        metric,
-        amount,
+      const { error } = await supabase.rpc("record_usage", {
+        p_event_id: eventId,
+        p_workspace_id: workspaceId,
+        p_period: currentMonth(),
+        p_metric: metric,
+        p_amount: amount,
+        p_employee_id: employeeId ?? null,
       });
-      if (error?.code === "23505") return;
       if (error) throw error;
+      return;
     }
     const { data } = await supabase
       .from("usage_monthly")

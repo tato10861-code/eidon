@@ -12,8 +12,8 @@
  * Anonymization is applied by default: workspace IDs are hashed, user IP
  * addresses are dropped, and no PII fields are included.
  *
- * Production note: wire this to the actual conversation store (Neon/Supabase).
- * The demo returns synthetic records to show the schema.
+ * Production note: exports contain only durable records from the selected workspace.
+ * An empty workspace returns an empty export rather than fabricated training data.
  */
 
 import type { NextRequest } from "next/server";
@@ -41,32 +41,6 @@ interface TrainingRecord {
   };
 }
 
-function syntheticRecords(count: number): TrainingRecord[] {
-  const examples: TrainingRecord[] = [];
-  for (let i = 0; i < count; i++) {
-    const emp = employees[i % employees.length]!;
-    examples.push({
-      messages: [
-        { role: "system", content: emp.systemPrompt },
-        { role: "user", content: emp.starters[i % emp.starters.length]! },
-        {
-          role: "assistant",
-          content: `As ${emp.name}, I'll address this by applying ${emp.skills[0]} and ${emp.skills[1] ?? "domain expertise"}. ${emp.playbook.deliverable}`,
-        },
-      ],
-      metadata: {
-        employee: emp.id,
-        role: emp.role,
-        department: emp.department,
-        language: "en",
-        tokens: 180 + (i % 120),
-        quality: 4 + (i % 2 === 0 ? 0.9 : 0.5),
-      },
-    });
-  }
-  return examples;
-}
-
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const workspaceId = url.searchParams.get("workspaceId") ?? "demo";
@@ -76,6 +50,8 @@ export async function GET(request: NextRequest) {
     500,
   );
   const minQuality = parseFloat(url.searchParams.get("minQuality") ?? "4.0");
+  const since = url.searchParams.get("since");
+  const until = url.searchParams.get("until");
 
   try {
     await authorizeWorkspace(request, workspaceId, "export:read");
@@ -113,12 +89,14 @@ export async function GET(request: NextRequest) {
 
   const supabase = await getSupabase();
   if (supabase) {
-    const { data } = await supabase
+    let query = supabase
       .from("conversations")
-      .select("id, messages, employee_id, metadata")
+      .select("id, employee_id, created_at, messages(role, content, created_at)")
       .eq("workspace_id", workspaceId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("created_at", { ascending: false });
+    if (since) query = query.gte("created_at", since);
+    if (until) query = query.lte("created_at", until);
+    const { data } = await query.limit(limit);
 
     if (data?.length) {
       records = data
@@ -137,8 +115,12 @@ export async function GET(request: NextRequest) {
               role: emp?.role ?? "unknown",
               department: emp?.department ?? "unknown",
               language: "en",
-              tokens: row.metadata?.tokens ?? 0,
-              quality: row.metadata?.quality ?? 4.0,
+              tokens: row.messages.reduce(
+                (total: number, message: { content?: string }) =>
+                  total + Math.ceil((message.content?.length ?? 0) / 4),
+                0,
+              ),
+              quality: 4.0,
             },
           };
         })
@@ -150,10 +132,16 @@ export async function GET(request: NextRequest) {
     if (sql) {
       try {
         const rows = await sql`
-          select id, messages, employee_id, metadata
-          from conversations
-          where workspace_id = ${workspaceId}
-          order by created_at desc
+          select c.id, c.employee_id,
+            coalesce(jsonb_agg(jsonb_build_object('role', m.role, 'content', m.content) order by m.created_at)
+              filter (where m.id is not null), '[]'::jsonb) as messages
+          from conversations c
+          left join messages m on m.conversation_id = c.id
+          where c.workspace_id = ${workspaceId}
+            and (${since ?? null}::timestamptz is null or c.created_at >= ${since ?? null}::timestamptz)
+            and (${until ?? null}::timestamptz is null or c.created_at <= ${until ?? null}::timestamptz)
+          group by c.id, c.employee_id, c.created_at
+          order by c.created_at desc
           limit ${limit}
         `;
         records = (rows as unknown[])
@@ -172,21 +160,21 @@ export async function GET(request: NextRequest) {
                 role: emp?.role ?? "unknown",
                 department: emp?.department ?? "unknown",
                 language: "en",
-                tokens: row.metadata?.tokens ?? 0,
-                quality: row.metadata?.quality ?? 4.0,
+                tokens: row.messages.reduce(
+                  (total: number, message: { content?: string }) =>
+                    total + Math.ceil((message.content?.length ?? 0) / 4),
+                  0,
+                ),
+                quality: 4.0,
               },
             };
           })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((r: any) => r.metadata.quality >= minQuality);
       } catch {
-        // fall through to synthetic
+        return Response.json({ error: "Export data could not be read." }, { status: 503 });
       }
     }
-  }
-
-  if (!records.length) {
-    records = syntheticRecords(Math.min(limit, 48));
   }
 
   if (format === "json") {

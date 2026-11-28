@@ -39,14 +39,14 @@ const deploymentOptions = [
     icon: Server,
     title: "Private Cloud / VPC",
     description:
-      "Deployed into your AWS, GCP or Azure VPC. Residency and network boundaries follow your configured infrastructure and Order Form.",
+      "A private deployment profile can be scoped for AWS, GCP or Azure. Residency and network boundaries follow the implemented configuration and signed Order Form.",
     highlight: true,
   },
   {
     icon: Building2,
     title: "On-Premise",
     description:
-      "Full source-code license. Run on your hardware, air-gapped if required. Suitable for government and regulated industries.",
+      "A negotiated source-code or self-hosted license can be scoped for your hardware. Air-gapped and regulated deployments require an environment-specific acceptance plan.",
     highlight: false,
   },
   {
@@ -69,13 +69,13 @@ const enterpriseFeatures = [
     icon: Database,
     title: "Data residency & sovereignty",
     description:
-      "Choose your database region. All conversation data stays inside the jurisdiction you specify.",
+      "A configured database region can support a residency requirement. The actual region, subprocessors, retention, and transfer terms are documented per deployment and contract.",
   },
   {
     icon: Lock,
     title: "SSO / SCIM",
     description:
-      "Integrate with Okta, Azure AD or any SAML/OIDC provider. Automate provisioning and de-provisioning.",
+      "Enterprise identity integration is a planned deployment capability. SAML/OIDC, SCIM, provisioning, and de-provisioning are specified and accepted per contract rather than implied by the public demo.",
   },
   {
     icon: Shield,

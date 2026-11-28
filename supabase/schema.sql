@@ -78,6 +78,12 @@ create table if not exists public.billing_subscriptions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.billing_events (
+  id text primary key,
+  type text not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.approval_tokens (
   id uuid primary key,
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -179,6 +185,7 @@ create index if not exists idx_approval_tokens_expiry on public.approval_tokens(
 create index if not exists idx_webhooks_workspace on public.webhooks(workspace_id);
 create index if not exists idx_webhook_deliveries_webhook on public.webhook_deliveries(webhook_id);
 create index if not exists idx_usage_monthly_workspace on public.usage_monthly(workspace_id);
+create index if not exists idx_billing_events_created on public.billing_events(created_at);
 create index if not exists idx_employees_workspace on public.employees(workspace_id);
 create index if not exists idx_conversations_workspace on public.conversations(workspace_id);
 create index if not exists idx_messages_conversation on public.messages(conversation_id);
@@ -193,6 +200,7 @@ alter table public.api_keys enable row level security;
 alter table public.usage_monthly enable row level security;
 alter table public.usage_events enable row level security;
 alter table public.billing_subscriptions enable row level security;
+alter table public.billing_events enable row level security;
 alter table public.approval_tokens enable row level security;
 alter table public.webhooks enable row level security;
 alter table public.webhook_deliveries enable row level security;
@@ -215,6 +223,62 @@ as $$
   );
 $$;
 
+-- Atomically records a usage event and updates the monthly ledger. The unique
+-- event id makes provider/request retries safe under concurrent execution.
+create or replace function public.record_usage(
+  p_event_id text,
+  p_workspace_id uuid,
+  p_period text,
+  p_metric text,
+  p_amount bigint,
+  p_employee_id text default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inserted boolean;
+begin
+  if p_metric not in ('api_calls', 'chat_tokens', 'conversation_turns', 'export_jobs')
+    or p_amount < 0 then
+    raise exception 'invalid usage event';
+  end if;
+
+  insert into public.usage_events (id, workspace_id, metric, amount)
+  values (p_event_id, p_workspace_id, p_metric, p_amount)
+  on conflict (id) do nothing;
+  inserted := found;
+  if not inserted then return false; end if;
+
+  insert into public.usage_monthly (workspace_id, period, employee_runs)
+  values (
+    p_workspace_id,
+    p_period,
+    case when p_employee_id is null then '{}'::jsonb
+      else jsonb_build_object(p_employee_id, 1) end
+  )
+  on conflict (workspace_id, period) do update set
+    api_calls = usage_monthly.api_calls + case when p_metric = 'api_calls' then p_amount else 0 end,
+    chat_tokens = usage_monthly.chat_tokens + case when p_metric = 'chat_tokens' then p_amount else 0 end,
+    conversation_turns = usage_monthly.conversation_turns + case when p_metric = 'conversation_turns' then p_amount else 0 end,
+    export_jobs = usage_monthly.export_jobs + case when p_metric = 'export_jobs' then p_amount else 0 end,
+    employee_runs = case when p_employee_id is null then usage_monthly.employee_runs else
+      jsonb_set(
+        usage_monthly.employee_runs,
+        array[p_employee_id],
+        to_jsonb(coalesce((usage_monthly.employee_runs ->> p_employee_id)::bigint, 0) + 1),
+        true
+      ) end,
+    updated_at = now();
+  return true;
+end;
+$$;
+
+revoke execute on function public.record_usage(text, uuid, text, text, bigint, text) from public;
+grant execute on function public.record_usage(text, uuid, text, text, bigint, text) to service_role;
+
 drop policy if exists "demo_all_workspaces" on public.workspaces;
 drop policy if exists "demo_all_employees" on public.employees;
 drop policy if exists "demo_all_conversations" on public.conversations;
@@ -228,6 +292,7 @@ drop policy if exists "admins can access api keys" on public.api_keys;
 drop policy if exists "members can read usage" on public.usage_monthly;
 drop policy if exists "members can read usage events" on public.usage_events;
 drop policy if exists "admins can read billing" on public.billing_subscriptions;
+drop policy if exists "admins can read billing events" on public.billing_events;
 drop policy if exists "members can use approvals" on public.approval_tokens;
 drop policy if exists "admins can manage webhooks" on public.webhooks;
 drop policy if exists "members can read webhook deliveries" on public.webhook_deliveries;
@@ -249,6 +314,8 @@ create policy "members can read usage events" on public.usage_events
   for select using (public.is_workspace_member(workspace_id));
 create policy "admins can read billing" on public.billing_subscriptions
   for select using (public.is_workspace_member(workspace_id));
+create policy "admins can read billing events" on public.billing_events
+  for select using (false);
 create policy "members can use approvals" on public.approval_tokens
   for all using (public.is_workspace_member(workspace_id))
   with check (public.is_workspace_member(workspace_id));

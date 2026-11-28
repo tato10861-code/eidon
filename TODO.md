@@ -42,9 +42,16 @@ handling, Stripe Checkout session creation, and usage-event idempotency. The lat
 is 62 passing tests, a passing TypeScript check, a successful production build, and lint with the
 existing warning baseline only.
 
-The remaining enterprise-readiness work is explicit: make the Supabase usage increment path atomic
-under concurrency, complete billing-event parity if Stripe is used with Supabase rather than Neon,
-finish deployment verification for the latest commit, and obtain external legal review of the
-commercial license, DPA, SLA, and compliance language. The latest Vercel deployment attempt was
-blocked by the account's daily deployment quota, so the newest commit must not be described as live
-in Production until a READY deployment for its SHA is confirmed.
+The Supabase usage increment path now has a checked-in transactional `record_usage` RPC design,
+and billing-event storage and Stripe reconciliation support both Supabase and Neon. Workspace
+listing is scoped to the authenticated principal, workspace creation ignores client-supplied plans,
+and authenticated exports read durable conversation/message rows without synthetic fallback data.
+Public README and enterprise copy now qualify unimplemented SSO/SCIM, private deployment, residency,
+and provider-backed tool execution claims.
+
+The remaining enterprise-readiness work is explicit: apply and concurrency-test the database
+migrations in the target environments, complete resource-to-workspace route coverage, implement
+PKCE and provider-backed tool execution, harden audit immutability and webhook secret storage,
+finish deletion/backup/observability controls, verify deployment for the latest commit, and obtain
+external legal review of the commercial license, DPA, SLA, and compliance language. The newest commit
+must not be described as live in Production until a READY deployment for its SHA is confirmed.

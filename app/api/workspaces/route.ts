@@ -8,16 +8,36 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  let principal;
   try {
-    await authenticateRequest(request);
+    principal = await authenticateRequest(request);
   } catch (error) {
     return accessError(error);
   }
   const supabase = await getSupabase();
   if (supabase) {
+    const membershipQuery = supabase
+      .from("workspace_memberships")
+      .select("workspace_id")
+      .eq("user_id", principal.kind === "session" ? principal.subject : "");
+    const { data: memberships, error: membershipError } =
+      principal.kind === "session"
+        ? await membershipQuery
+        : { data: [{ workspace_id: principal.workspaceId }], error: null };
+    if (membershipError)
+      return NextResponse.json(
+        { configured: true, provider: "supabase", error: membershipError.message },
+        { status: 500 },
+      );
+    const workspaceIds = (memberships ?? []).map(
+      (row: { workspace_id: string }) => row.workspace_id,
+    );
+    if (!workspaceIds.length)
+      return NextResponse.json({ configured: true, provider: "supabase", workspaces: [] });
     const { data, error } = await supabase
       .from("workspaces")
       .select("*")
+      .in("id", workspaceIds)
       .order("created_at", { ascending: false });
     if (error)
       return NextResponse.json(
@@ -30,7 +50,15 @@ export async function GET(request: NextRequest) {
   const sql = getNeon();
   if (sql) {
     try {
-      const rows = await sql`select * from workspaces order by created_at desc`;
+      const workspaceIds =
+        principal.kind === "session"
+          ? await sql`select workspace_id from workspace_memberships where user_id = ${principal.subject}`
+          : [{ workspace_id: principal.workspaceId }];
+      const ids = (workspaceIds as { workspace_id: string }[]).map((row) => row.workspace_id);
+      if (!ids.length)
+        return NextResponse.json({ configured: true, provider: "neon", workspaces: [] });
+      const rows =
+        await sql`select * from workspaces where id = any(${ids}::uuid[]) order by created_at desc`;
       return NextResponse.json({ configured: true, provider: "neon", workspaces: rows });
     } catch (error) {
       return NextResponse.json(
@@ -54,6 +82,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return accessError(error);
   }
+  if (principal.kind !== "session") {
+    return NextResponse.json(
+      { error: "A verified user session is required to create a workspace." },
+      { status: 403 },
+    );
+  }
   let body: { name?: string; slug?: string; plan?: string } = {};
   try {
     body = await request.json();
@@ -71,7 +105,7 @@ export async function POST(request: NextRequest) {
   if (supabase) {
     const { data, error } = await supabase
       .from("workspaces")
-      .insert({ name, slug, plan: body.plan ?? "starter" })
+      .insert({ name, slug, plan: "starter" })
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -90,7 +124,7 @@ export async function POST(request: NextRequest) {
     try {
       const rows = await sql`
         insert into workspaces (name, slug, plan)
-        values (${name}, ${slug}, ${body.plan ?? "starter"})
+        values (${name}, ${slug}, 'starter')
         returning *
       `;
       if (principal.kind === "session" && (rows as { id?: string }[])[0]?.id) {

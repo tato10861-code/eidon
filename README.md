@@ -11,7 +11,7 @@ reason, use your tools and finish real work.
 <!-- release & deploy -->
 
 [![Release](https://img.shields.io/github/v/release/tato10861-code/eidon?color=cbff5a&logo=github)](https://github.com/tato10861-code/eidon/releases)
-[![Production deploy](https://img.shields.io/github/deployments/tato10861-code/eidon/production?label=vercel%20prod)](https://eidon-two.vercel.app)
+[![Production deploy](https://img.shields.io/github/deployments/tato10861-code/eidon/production?label=vercel%20prod)](https://eidon-ta-to.vercel.app)
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ed?logo=docker)](https://github.com/tato10861-code/eidon/pkgs/container/eidon)
 <!-- SDKs -->
 
@@ -25,13 +25,15 @@ reason, use your tools and finish real work.
 [![License](https://img.shields.io/github/license/tato10861-code/eidon)](LICENSE)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6ba539?logo=openapiinitiative)](openapi.yaml)
 
-> **v0.2.0** — Multi-provider AI engine, Node.js / Python / Go SDKs, OpenAPI spec,
-> Webhooks, CLI, Helm chart, and multi-arch Docker images now ship.
-> Workspace OAuth, billing, and live tool execution are the next milestones.
+> **v0.3.0** — Multi-provider AI engine, workspace authorization, durable usage accounting,
+> signed approvals, webhook hardening, Stripe billing primitives, OpenAPI, and a CLI are included.
+> Enterprise identity, provider-backed tool execution, and verified private deployment remain explicit
+> milestones rather than implied guarantees.
 
-**Product model:** B2B SaaS. Multi-tenant workspaces, per-workspace billing and usage,
-regional data residency, SSO/SCIM on Enterprise. Free Starter tier, $499/mo Scale,
-custom Enterprise.
+**Product model:** B2B SaaS and licensable platform foundation. Multi-tenant workspaces,
+per-workspace usage, plan entitlements, and Stripe billing primitives are included. Regional
+residency, SSO/SCIM, private deployment, and contractual service levels require an implemented
+deployment profile and signed commercial agreement. Free Starter tier, $499/mo Scale, custom Enterprise.
 
 ---
 
@@ -59,7 +61,7 @@ Twelve specialists ship out of the box, across every department a company actual
 | ---------- | --------------------- | ----------- | ------------------------------------- |
 | **Ava**    | Sales Development Rep | Revenue     | Cold lists → booked meetings          |
 | **Atlas**  | Data Analyst          | Data        | Questions → validated answers         |
-| **Mira**   | Customer Support      | Support     | Tickets → resolutions, 78% autonomous |
+| **Mira**   | Customer Support      | Support     | Tickets → resolutions                 |
 | **Rex**    | Technical Recruiter   | Talent      | Hundreds screened → five worth hiring |
 | **Nova**   | Growth Marketer       | Marketing   | Positioning → qualified pipeline      |
 | **Ledger** | Finance Analyst       | Finance     | Books → board-ready narrative         |
@@ -83,7 +85,7 @@ execution playbook, starter tasks and a quality checklist.
 | `/studio`           | Six-step builder: identity, mind, tools, knowledge, guardrails, deploy    |
 | `/playground`       | Streaming chat with tool traces, latency and token usage                  |
 | `/dashboard`        | Workforce analytics, quality scores, activity, deployments                |
-| `/integrations`     | 50 native integrations with search and category filters                   |
+| `/integrations`     | Integration catalog with search and category filters                      |
 | `/docs`             | Quickstart, API reference, embed guide, architecture                      |
 | `/embed/[slug]`     | Minimal, frameable chat widget                                            |
 | `/api/chat`         | Streaming SSE runtime, rate-limited, provider-agnostic                    |
@@ -280,8 +282,8 @@ messages/            Marketing copy (en, ar)
 
 ## Roadmap
 
-- [ ] Workspaces, auth and role-based access (Supabase).
-- [ ] Live OAuth tool execution with per-action approvals.
+- [x] Workspaces, auth and role-based access foundation (Supabase/Neon).
+- [ ] Provider-backed OAuth tool execution with per-action approvals.
 - [ ] Evaluation studio: scenario suites, regression gates, score history.
 - [ ] Voice channel and phone numbers.
 - [ ] Marketplace for community-built employees.
@@ -295,7 +297,10 @@ GitHub Deployment (visible at
 Every pull request creates a **preview** deployment. The badges at the top of this
 README reflect the latest production and preview status and update automatically.
 
-Production URL: https://eidon-two.vercel.app
+Latest confirmed Production URL: https://eidon-ta-to.vercel.app
+
+The latest GitHub checkpoint is not considered live until Vercel reports a READY deployment for
+that exact commit SHA. See [release notes](docs/release-notes-2026-11-28.md) for the current deployment record.
 
 ## Production checklist
 
