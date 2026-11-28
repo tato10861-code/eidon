@@ -26,9 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`,
   `billing_period_end`, `seats`, `updated_at` to `workspaces`; new `subscriptions`
   and `invoices` tables with covering indexes
-- **Vercel Web Analytics** (`@vercel/analytics` v2.0.1): page-view and Web Vitals
-  tracking enabled in the Vercel dashboard with zero configuration beyond mounting
-  `<Analytics />` in the root layout
 
 ### Added — Admin & observability
 
@@ -56,6 +53,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,
   `STRIPE_PRICE_SCALE_MONTHLY`, `STRIPE_PRICE_SCALE_ANNUAL`, `ADMIN_API_KEY`
   documented in `.env.example`
+
+---
+
+## [0.3.0] — 2026-11-28
+
+### Added
+
+- **Vercel Web Analytics** (`@vercel/analytics` v2.0.1): page-view and Web Vitals
+  tracking enabled in the Vercel dashboard with zero configuration beyond mounting
+  `<Analytics />` in the root layout
+
+### Fixed — CI/CD pipeline
+
+- **Release workflow** (`release.yml`): Node.js SDK and CLI build steps now use
+  `npm run build` instead of bare `npx tsup`, resolving "No input files" errors
+- **CLI shebang**: added `cli/tsup.config.ts` with `banner: { js: '#!/usr/bin/env node' }`
+  to fix `CACError: Unknown option --banner` from tsup's CAC argument parser when
+  the banner flag was passed on the CLI
+- **Python SDK dry-run**: replaced invalid `hatch build --show` flag with
+  `hatch build` + directory listing when `PYPI_TOKEN` is absent
+- **GitHub Release job**: added `if: always() && needs.build-verify.result == 'success'`
+  so the release is created even when SDK publish jobs are skipped (no NPM/PyPI
+  tokens configured); added `build-verify` to `needs`
 
 ---
 
@@ -170,6 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CodeQL code-scanning on every push
 - Dependabot for npm and GitHub Actions, grouped by package family
 
-[Unreleased]: https://github.com/tato10861-code/eidon/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tato10861-code/eidon/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tato10861-code/eidon/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/tato10861-code/eidon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tato10861-code/eidon/releases/tag/v0.1.0
