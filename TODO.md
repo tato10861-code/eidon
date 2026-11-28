@@ -37,10 +37,11 @@
 ## Current evidence and remaining blockers — 2026-11-28
 
 The repository now includes durable API-key lifecycle controls, signed single-use approvals,
-centralized redacted audit logging, SSRF-hardened webhook delivery, Stripe signature/idempotency
-handling, Stripe Checkout session creation, and usage-event idempotency. The latest local evidence
-is 62 passing tests, a passing TypeScript check, a successful production build, and lint with the
-existing warning baseline only.
+centralized redacted audit logging, append-only audit triggers, DNS-pinned SSRF-hardened webhook
+delivery, encrypted webhook secrets, Stripe signature/idempotency handling, Stripe Checkout session
+creation, and atomic usage reservations. OAuth authorization now uses PKCE and includes an audited
+disconnect endpoint. The latest local evidence is 64 passing tests, a passing TypeScript check, a
+successful production build, and lint with the existing warning baseline only.
 
 The Supabase usage increment path now has a checked-in transactional `record_usage` RPC design,
 and billing-event storage and Stripe reconciliation support both Supabase and Neon. Workspace
@@ -51,7 +52,7 @@ and provider-backed tool execution claims.
 
 The remaining enterprise-readiness work is explicit: apply and concurrency-test the database
 migrations in the target environments, complete resource-to-workspace route coverage, implement
-PKCE and provider-backed tool execution, harden audit immutability and webhook secret storage,
-finish deletion/backup/observability controls, verify deployment for the latest commit, and obtain
-external legal review of the commercial license, DPA, SLA, and compliance language. The newest commit
-must not be described as live in Production until a READY deployment for its SHA is confirmed.
+provider-backed tool execution, OAuth refresh-token rotation and provider revocation, finish
+deletion/backup/observability controls, verify deployment for the latest commit, and obtain external
+legal review of the commercial license, DPA, SLA, and compliance language. The newest commit must
+not be described as live in Production until a READY deployment for its SHA is confirmed.
