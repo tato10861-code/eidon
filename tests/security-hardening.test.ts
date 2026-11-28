@@ -54,6 +54,8 @@ describe("security hardening", () => {
 
   it("rejects loopback webhook targets", async () => {
     await expect(validateWebhookTarget("https://127.0.0.1/hook")).rejects.toThrow();
+    await expect(validateWebhookTarget("https://[::ffff:127.0.0.1]/hook")).rejects.toThrow();
+    await expect(validateWebhookTarget("https://[::1]/hook")).rejects.toThrow();
   });
 
   it("creates an S256 PKCE pair and rejects OAuth state without a secret", () => {

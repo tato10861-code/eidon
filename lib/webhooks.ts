@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
+import https from "node:https";
 import net from "node:net";
 import { getNeon } from "./neon";
 import { decryptSecret } from "./security/secrets";
@@ -32,6 +33,7 @@ function isPrivateIp(ip: string) {
   }
   if (net.isIPv6(ip)) {
     const normalized = ip.toLowerCase();
+    if (normalized.startsWith("::ffff:")) return isPrivateIp(normalized.slice(7));
     return (
       normalized === "::1" ||
       normalized === "::" ||
@@ -40,20 +42,59 @@ function isPrivateIp(ip: string) {
       normalized.startsWith("fe8") ||
       normalized.startsWith("fe9") ||
       normalized.startsWith("fea") ||
-      normalized.startsWith("feb")
+      normalized.startsWith("feb") ||
+      normalized.startsWith("ff")
     );
   }
   return true;
 }
 
-export async function validateWebhookTarget(rawUrl: string) {
+async function resolveWebhookTarget(rawUrl: string) {
   const parsed = new URL(rawUrl);
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port === "80")
     throw new Error("private or non-HTTPS target");
   const addresses = await dns.lookup(parsed.hostname, { all: true, verbatim: true });
   if (!addresses.length || addresses.some(({ address }) => isPrivateIp(address)))
     throw new Error("private or unresolved target");
-  return parsed;
+  return { parsed, addresses: addresses.map(({ address }) => address) };
+}
+
+export async function validateWebhookTarget(rawUrl: string) {
+  return (await resolveWebhookTarget(rawUrl)).parsed;
+}
+
+function requestPinned(
+  parsed: URL,
+  address: string,
+  body: string,
+  headers: Record<string, string>,
+) {
+  return new Promise<number>((resolve, reject) => {
+    const request = https.request(
+      {
+        protocol: parsed.protocol,
+        hostname: address,
+        port: parsed.port ? Number(parsed.port) : 443,
+        path: `${parsed.pathname}${parsed.search}`,
+        method: "POST",
+        servername: parsed.hostname,
+        headers: {
+          ...headers,
+          Host: parsed.host,
+          "Content-Length": String(Buffer.byteLength(body)),
+        },
+        timeout: 10_000,
+        rejectUnauthorized: true,
+      },
+      (response) => {
+        response.resume();
+        response.once("end", () => resolve(response.statusCode ?? 0));
+      },
+    );
+    request.once("timeout", () => request.destroy(new Error("webhook request timed out")));
+    request.once("error", reject);
+    request.end(body);
+  });
 }
 
 async function deliverOne(
@@ -64,25 +105,19 @@ async function deliverOne(
 ): Promise<boolean> {
   const body = JSON.stringify(payload);
   const sig = sign(secret, body);
+  const target = await resolveWebhookTarget(url);
   let statusCode: number | null = null;
   let success = false;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        redirect: "manual",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Eidon-Signature": sig,
-          "X-Eidon-Event": payload.event,
-          "X-Eidon-Delivery": payload.id,
-          "User-Agent": "Eidon-Webhooks/1.0",
-        },
-        body,
-        signal: AbortSignal.timeout(10_000),
+      statusCode = await requestPinned(target.parsed, target.addresses[0], body, {
+        "Content-Type": "application/json",
+        "X-Eidon-Signature": sig,
+        "X-Eidon-Event": payload.event,
+        "X-Eidon-Delivery": payload.id,
+        "User-Agent": "Eidon-Webhooks/1.0",
       });
-      statusCode = res.status;
-      success = res.ok;
+      success = statusCode >= 200 && statusCode < 300;
     } catch {
       success = false;
     }
