@@ -3,7 +3,7 @@
 -- Third-party integration configurations
 CREATE TABLE IF NOT EXISTS workspace_integrations (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   provider TEXT NOT NULL
     CHECK (provider IN ('slack','teams','jira','github','zendesk',
                         'pagerduty','linear','salesforce','hubspot',
@@ -32,8 +32,8 @@ CREATE INDEX IF NOT EXISTS idx_workspace_integrations_status
 -- Knowledge base documents for RAG grounding
 CREATE TABLE IF NOT EXISTS knowledge_documents (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  employee_id TEXT REFERENCES employees(id) ON DELETE SET NULL,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   type TEXT NOT NULL
     CHECK (type IN ('text','markdown','faq','policy','procedure',
@@ -72,7 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_documents_fulltext
 -- Data export jobs (GDPR / data portability)
 CREATE TABLE IF NOT EXISTS data_export_jobs (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   requested_by TEXT,
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending','running','completed','failed')),

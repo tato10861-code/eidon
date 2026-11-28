@@ -3,8 +3,8 @@
 -- Fine-tuning jobs
 CREATE TABLE IF NOT EXISTS fine_tuning_jobs (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  employee_id TEXT REFERENCES employees(id) ON DELETE SET NULL,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
   base_model TEXT NOT NULL,
   data_source TEXT NOT NULL CHECK (data_source IN ('conversation_export', 'jsonl', 'raw')),
   training_examples_count INTEGER,
@@ -30,7 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_fine_tuning_jobs_status
 -- Notification preferences (per member × workspace)
 CREATE TABLE IF NOT EXISTS notification_preferences (
   member_id TEXT NOT NULL,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   preferences JSONB NOT NULL DEFAULT '{}',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (member_id, workspace_id)
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
 -- Notification events log (sent/queued notifications)
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   member_id TEXT,
   category TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -60,8 +60,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_member
 -- Persistent conversation memory
 CREATE TABLE IF NOT EXISTS conversation_memory (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
   user_id TEXT,
   type TEXT NOT NULL CHECK (type IN ('fact', 'preference', 'context', 'instruction')),
   content TEXT NOT NULL,

@@ -3,7 +3,7 @@
 -- Workspace/employee/member spending budgets
 CREATE TABLE IF NOT EXISTS workspace_budgets (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   type TEXT NOT NULL CHECK (type IN ('workspace', 'employee', 'member')),
   target_id TEXT,
   limit_usd NUMERIC(12, 4) NOT NULL,

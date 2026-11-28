@@ -3,7 +3,7 @@
 -- Workspace invitations (email-based member onboarding)
 CREATE TABLE IF NOT EXISTS workspace_invitations (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'member'
     CHECK (role IN ('owner','admin','member','viewer')),
@@ -34,10 +34,10 @@ CREATE INDEX IF NOT EXISTS idx_invitations_email
 
 -- Usage events ledger (granular per-call tracking for billing/analytics)
 CREATE TABLE IF NOT EXISTS usage_events (
-  id BIGSERIAL PRIMARY KEY,
-  workspace_id TEXT NOT NULL,
-  employee_id TEXT,
-  conversation_id TEXT,
+  id BIGSERIAL NOT NULL,
+  workspace_id UUID NOT NULL,
+  employee_id UUID,
+  conversation_id UUID,
   user_id TEXT,
   model TEXT NOT NULL,
   event_type TEXT NOT NULL DEFAULT 'completion'
@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS usage_events (
   latency_ms INTEGER,
   error TEXT,
   metadata JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
 -- Current and upcoming month partitions
@@ -95,7 +96,7 @@ GROUP BY workspace_id, employee_id, model, DATE_TRUNC('day', created_at)
 WITH DATA;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_daily_summary_pk
-  ON usage_daily_summary (workspace_id, COALESCE(employee_id,''), model, day);
+  ON usage_daily_summary (workspace_id, COALESCE(employee_id, '00000000-0000-0000-0000-000000000000'::uuid), model, day);
 
 CREATE INDEX IF NOT EXISTS idx_usage_daily_summary_workspace
   ON usage_daily_summary (workspace_id, day DESC);

@@ -3,10 +3,10 @@
 
 CREATE TABLE IF NOT EXISTS eval_suites (
   id           TEXT PRIMARY KEY,
-  workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
   name         TEXT NOT NULL,
   description  TEXT,
-  employee_id  TEXT,
+  employee_id  UUID REFERENCES employees(id) ON DELETE SET NULL,
   cases        JSONB NOT NULL DEFAULT '[]',
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -18,8 +18,8 @@ CREATE INDEX IF NOT EXISTS idx_eval_suites_employee ON eval_suites(employee_id);
 CREATE TABLE IF NOT EXISTS eval_runs (
   id           TEXT PRIMARY KEY,
   suite_id     TEXT NOT NULL REFERENCES eval_suites(id) ON DELETE CASCADE,
-  workspace_id TEXT,
-  employee_id  TEXT,
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  employee_id  UUID REFERENCES employees(id) ON DELETE SET NULL,
   model        TEXT,
   started_at   TIMESTAMPTZ NOT NULL,
   finished_at  TIMESTAMPTZ NOT NULL,

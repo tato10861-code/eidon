@@ -171,7 +171,7 @@ alter table workspaces
 
 create table if not exists employee_templates (
   id            text primary key,
-  workspace_id  text references workspaces(id) on delete cascade,
+  workspace_id  uuid references workspaces(id) on delete cascade,
   name          text not null,
   description   text,
   role          text not null,
