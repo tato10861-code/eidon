@@ -11,15 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           fetch-tags: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Move v0.2.0 tag to correct merge commit
+      - name: Recreate v0.2.0 tag at correct merge commit
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
-          git tag -d v0.2.0 || true
-          git push origin :refs/tags/v0.2.0
+          git tag -d v0.2.0 2>/dev/null || true
+          git push origin :refs/tags/v0.2.0 2>/dev/null || true
           git tag v0.2.0 bb347f6f56292bd979c0de65d07ff3836f9b4866
           git push origin refs/tags/v0.2.0
           echo "Tag v0.2.0 now points to bb347f6"
