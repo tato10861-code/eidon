@@ -1,0 +1,147 @@
+{
+  "_comment": "Eidon Terraform Provider — resource schema reference for infrastructure teams.",
+  "_note": "Use this with a custom Terraform provider or the Terraform HTTP provider. See docs at /api/openapi.",
+
+  "terraform": {
+    "required_providers": {
+      "eidon": {
+        "source": "eidon-ai/eidon",
+        "version": "~> 1.0"
+      }
+    }
+  },
+
+  "provider_eidon": {
+    "admin_key": "${var.eidon_admin_key}",
+    "base_url": "${var.eidon_base_url}"
+  },
+
+  "resource_eidon_workspace": {
+    "type": "eidon_workspace",
+    "description": "Provisions a fully configured Eidon workspace.",
+    "attributes": {
+      "name": { "type": "string", "required": true },
+      "owner_email": { "type": "string", "required": true },
+      "plan": {
+        "type": "string",
+        "default": "pro",
+        "enum": ["free", "starter", "pro", "enterprise"]
+      },
+      "seats": { "type": "number", "default": 25 },
+      "sso_provider": { "type": "string", "optional": true, "enum": ["saml", "oidc"] },
+      "sso_domain": { "type": "string", "optional": true },
+      "generate_scim_token": { "type": "bool", "default": false },
+      "ip_allowlist": { "type": "list(string)", "optional": true },
+      "settings": { "type": "map(any)", "optional": true }
+    },
+    "computed_attributes": {
+      "workspace_id": { "type": "string" },
+      "slug": { "type": "string" },
+      "scim_token": { "type": "string", "sensitive": true },
+      "saml_acs_url": { "type": "string" },
+      "saml_entity_id": { "type": "string" },
+      "metadata_url": { "type": "string" }
+    }
+  },
+
+  "resource_eidon_member": {
+    "type": "eidon_member",
+    "description": "Manages a workspace member.",
+    "attributes": {
+      "workspace_id": { "type": "string", "required": true },
+      "email": { "type": "string", "required": true },
+      "role": {
+        "type": "string",
+        "default": "member",
+        "enum": ["owner", "admin", "member", "viewer"]
+      }
+    }
+  },
+
+  "resource_eidon_webhook": {
+    "type": "eidon_webhook",
+    "description": "Registers a webhook endpoint for workspace events.",
+    "attributes": {
+      "workspace_id": { "type": "string", "required": true },
+      "url": { "type": "string", "required": true },
+      "events": { "type": "list(string)", "required": true },
+      "description": { "type": "string", "optional": true }
+    },
+    "computed_attributes": {
+      "signing_secret": { "type": "string", "sensitive": true }
+    }
+  },
+
+  "resource_eidon_employee": {
+    "type": "eidon_employee",
+    "description": "Creates an AI employee (can be cloned from a template).",
+    "attributes": {
+      "workspace_id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true },
+      "role": { "type": "string", "required": true },
+      "system_prompt": { "type": "string", "required": true },
+      "model": { "type": "string", "optional": true },
+      "temperature": { "type": "number", "optional": true },
+      "template_id": {
+        "type": "string",
+        "optional": true,
+        "description": "Clone from this template"
+      }
+    }
+  },
+
+  "data_source_eidon_workspace": {
+    "type": "eidon_workspace",
+    "description": "Looks up an existing workspace by ID.",
+    "attributes": {
+      "workspace_id": { "type": "string", "required": true }
+    }
+  },
+
+  "example_usage": {
+    "module": "acme_workspace",
+    "terraform": {
+      "variable": {
+        "eidon_admin_key": { "type": "string", "sensitive": true },
+        "eidon_base_url": { "type": "string", "default": "https://app.eidon.ai" }
+      },
+      "resource": {
+        "eidon_workspace": {
+          "acme": {
+            "name": "Acme Corporation",
+            "owner_email": "admin@acme.com",
+            "plan": "enterprise",
+            "seats": 500,
+            "sso_provider": "saml",
+            "sso_domain": "acme.com",
+            "generate_scim_token": true,
+            "settings": {
+              "requireMfa": "true",
+              "conversationRetentionDays": "90"
+            }
+          }
+        },
+        "eidon_member": {
+          "alice": {
+            "workspace_id": "${eidon_workspace.acme.workspace_id}",
+            "email": "alice@acme.com",
+            "role": "admin"
+          }
+        },
+        "eidon_webhook": {
+          "hr_events": {
+            "workspace_id": "${eidon_workspace.acme.workspace_id}",
+            "url": "https://hooks.acme.com/eidon",
+            "events": ["employee.created", "member.invited", "billing.subscription_updated"],
+            "description": "HR system integration"
+          }
+        }
+      },
+      "output": {
+        "workspace_id": { "value": "${eidon_workspace.acme.workspace_id}" },
+        "scim_base_url": { "value": "https://app.eidon.ai/api/scim/v2" },
+        "saml_acs_url": { "value": "${eidon_workspace.acme.saml_acs_url}" }
+      }
+    }
+  }
+}
