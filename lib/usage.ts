@@ -109,6 +109,40 @@ export async function getDurableMetric(
   return typeof value === "number" ? Number(value) : null;
 }
 
+export async function reserveUsage(
+  workspaceId: string,
+  metric: "api_calls" | "chat_tokens" | "conversation_turns" | "export_jobs",
+  amount: number,
+  eventId: string,
+  employeeId?: string,
+) {
+  if (!Number.isInteger(amount) || amount <= 0)
+    throw new RangeError("Usage amount must be positive.");
+  const { getSupabase } = await import("@/lib/supabase");
+  const supabase = await getSupabase();
+  if (supabase) {
+    const { data, error } = await supabase.rpc("reserve_usage", {
+      p_event_id: eventId,
+      p_workspace_id: workspaceId,
+      p_period: currentMonth(),
+      p_metric: metric,
+      p_amount: amount,
+      p_employee_id: employeeId ?? null,
+    });
+    if (error) throw error;
+    return data !== false;
+  }
+  const { getNeon } = await import("@/lib/neon");
+  const sql = getNeon();
+  if (sql) {
+    const rows = await sql`
+      select reserve_usage(${eventId}, ${workspaceId}, ${currentMonth()}, ${metric}, ${amount}, ${employeeId ?? null}) as reserved
+    `;
+    return Boolean((rows as { reserved?: boolean }[])[0]?.reserved);
+  }
+  return true;
+}
+
 export async function persistUsage(
   workspaceId: string,
   metric: "api_calls" | "chat_tokens" | "conversation_turns" | "export_jobs",

@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
   const minQuality = parseFloat(url.searchParams.get("minQuality") ?? "4.0");
   const since = url.searchParams.get("since");
   const until = url.searchParams.get("until");
+  const usageEventId = request.headers.get("idempotency-key") ?? crypto.randomUUID();
 
   try {
     await authorizeWorkspace(request, workspaceId, "export:read");
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
     return accessError(error);
   }
   try {
-    await assertEntitled(workspaceId, "exportJobs", 1);
+    await assertEntitled(workspaceId, "exportJobs", 1, usageEventId);
   } catch (error) {
     return (
       entitlementError(error) ??
@@ -74,13 +75,7 @@ export async function GET(request: NextRequest) {
 
   recordExport(workspaceId);
   try {
-    await persistUsage(
-      workspaceId,
-      "export_jobs",
-      1,
-      undefined,
-      request.headers.get("idempotency-key") ?? crypto.randomUUID(),
-    );
+    await persistUsage(workspaceId, "export_jobs", 1, undefined, usageEventId);
   } catch {
     // Keep the demo/export path available while an installation is being migrated.
   }

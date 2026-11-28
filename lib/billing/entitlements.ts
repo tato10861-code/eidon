@@ -1,6 +1,6 @@
 import { getNeon } from "@/lib/neon";
 import { getSupabase } from "@/lib/supabase";
-import { getDurableMetric, getUsage } from "@/lib/usage";
+import { getDurableMetric, getUsage, reserveUsage } from "@/lib/usage";
 import { normalizePlan, PLAN_LIMITS, type BillableMetric, type PlanId } from "@/lib/billing/plans";
 
 export class EntitlementDenied extends Error {
@@ -56,13 +56,32 @@ function resolveEffectivePlan(
     : "starter";
 }
 
-export async function assertEntitled(workspaceId: string, metric: BillableMetric, increment = 1) {
+export async function assertEntitled(
+  workspaceId: string,
+  metric: BillableMetric,
+  increment = 1,
+  eventId?: string,
+  employeeId?: string,
+) {
   if (!Number.isInteger(increment) || increment <= 0) {
     throw new RangeError("Entitlement increment must be a positive integer.");
   }
   const plan = await getPlan(workspaceId);
   const limit = PLAN_LIMITS[plan][metric];
   if (limit === null) return { plan, current: 0, limit: null };
+  if (eventId && (metric === "conversationTurns" || metric === "exportJobs")) {
+    const reserved = await reserveUsage(
+      workspaceId,
+      metric === "conversationTurns" ? "conversation_turns" : "export_jobs",
+      increment,
+      eventId,
+      employeeId,
+    );
+    const durableMetric = durableMetricFor(metric);
+    const current = (await getDurableMetric(workspaceId, durableMetric)) ?? increment;
+    if (!reserved) throw new EntitlementDenied(workspaceId, metric, limit, current);
+    return { plan, current, limit };
+  }
   const durableMetric =
     metric === "conversationTurns"
       ? "conversationTurns"
@@ -75,6 +94,16 @@ export async function assertEntitled(workspaceId: string, metric: BillableMetric
     (await getDurableMetric(workspaceId, durableMetric)) ?? getUsage(workspaceId)[metric];
   if (current + increment > limit) throw new EntitlementDenied(workspaceId, metric, limit, current);
   return { plan, current, limit };
+}
+
+function durableMetricFor(metric: BillableMetric) {
+  return metric === "conversationTurns"
+    ? "conversationTurns"
+    : metric === "chatTokens"
+      ? "chatTokens"
+      : metric === "exportJobs"
+        ? "exportJobs"
+        : "apiCalls";
 }
 
 export function entitlementError(error: unknown) {

@@ -338,6 +338,58 @@ grant execute on function public.record_usage(text, uuid, text, text, bigint, te
 revoke execute on function public.create_workspace_with_owner(text, text, uuid) from public;
 grant execute on function public.create_workspace_with_owner(text, text, uuid) to service_role;
 
+create or replace function public.reserve_usage(
+  p_event_id text,
+  p_workspace_id uuid,
+  p_period text,
+  p_metric text,
+  p_amount bigint,
+  p_employee_id text default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  plan_name text;
+  limit_value bigint;
+  current_value bigint;
+begin
+  if p_amount <= 0 or p_metric not in ('api_calls', 'chat_tokens', 'conversation_turns', 'export_jobs') then
+    raise exception 'invalid usage reservation';
+  end if;
+  if exists (select 1 from public.usage_events where id = p_event_id) then return true; end if;
+  select case when s.status in ('active', 'trialing') then s.plan else w.plan end
+    into plan_name
+    from public.workspaces w left join public.billing_subscriptions s on s.workspace_id = w.id
+    where w.id = p_workspace_id;
+  plan_name := coalesce(plan_name, 'starter');
+  limit_value := case plan_name
+    when 'scale' then case p_metric when 'api_calls' then 250000 when 'chat_tokens' then 10000000 when 'conversation_turns' then 25000 when 'export_jobs' then 250 end
+    when 'enterprise' then null
+    else case p_metric when 'api_calls' then 10000 when 'chat_tokens' then 250000 when 'conversation_turns' then 1000 when 'export_jobs' then 10 end
+  end;
+  insert into public.usage_monthly (workspace_id, period) values (p_workspace_id, p_period)
+    on conflict (workspace_id, period) do nothing;
+  select case p_metric when 'api_calls' then api_calls when 'chat_tokens' then chat_tokens when 'conversation_turns' then conversation_turns when 'export_jobs' then export_jobs end
+    into current_value from public.usage_monthly where workspace_id = p_workspace_id and period = p_period for update;
+  if limit_value is not null and current_value + p_amount > limit_value then return false; end if;
+  insert into public.usage_events (id, workspace_id, metric, amount) values (p_event_id, p_workspace_id, p_metric, p_amount);
+  update public.usage_monthly set
+    api_calls = api_calls + case when p_metric = 'api_calls' then p_amount else 0 end,
+    chat_tokens = chat_tokens + case when p_metric = 'chat_tokens' then p_amount else 0 end,
+    conversation_turns = conversation_turns + case when p_metric = 'conversation_turns' then p_amount else 0 end,
+    export_jobs = export_jobs + case when p_metric = 'export_jobs' then p_amount else 0 end,
+    employee_runs = case when p_employee_id is null then employee_runs else jsonb_set(employee_runs, array[p_employee_id], to_jsonb(coalesce((employee_runs ->> p_employee_id)::bigint, 0) + 1), true) end,
+    updated_at = now()
+    where workspace_id = p_workspace_id and period = p_period;
+  return true;
+end;
+$$;
+revoke execute on function public.reserve_usage(text, uuid, text, text, bigint, text) from public;
+grant execute on function public.reserve_usage(text, uuid, text, text, bigint, text) to service_role;
+
 drop policy if exists "demo_all_workspaces" on public.workspaces;
 drop policy if exists "demo_all_employees" on public.employees;
 drop policy if exists "demo_all_conversations" on public.conversations;

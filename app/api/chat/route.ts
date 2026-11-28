@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     return accessError(error);
   }
   try {
-    await assertEntitled(workspaceId, "conversationTurns", 1);
+    await assertEntitled(workspaceId, "conversationTurns", 1, usageEventId, employee.id);
   } catch (error) {
     return (
       entitlementError(error) ??
