@@ -8,7 +8,13 @@ const mockStripe = {
   webhooks: { constructEvent: vi.fn() },
 };
 
-vi.mock("stripe", () => ({ default: vi.fn(() => mockStripe) }));
+vi.mock("stripe", () => ({
+  default: class {
+    constructor() {
+      return mockStripe;
+    }
+  },
+}));
 
 describe("billing helpers", () => {
   beforeEach(() => {
@@ -19,7 +25,13 @@ describe("billing helpers", () => {
 
   it("createCheckoutSession returns session with correct params", async () => {
     vi.resetModules();
-    vi.mock("stripe", () => ({ default: vi.fn(() => mockStripe) }));
+    vi.doMock("stripe", () => ({
+      default: class {
+        constructor() {
+          return mockStripe;
+        }
+      },
+    }));
     const { createCheckoutSession } = await import("../lib/billing");
     mockStripe.checkout.sessions.create.mockResolvedValue({
       id: "cs_test_123",
@@ -45,7 +57,13 @@ describe("billing helpers", () => {
 
   it("getOrCreateCustomer returns existing customer when found", async () => {
     vi.resetModules();
-    vi.mock("stripe", () => ({ default: vi.fn(() => mockStripe) }));
+    vi.doMock("stripe", () => ({
+      default: class {
+        constructor() {
+          return mockStripe;
+        }
+      },
+    }));
     const { getOrCreateCustomer } = await import("../lib/billing");
     const existingCustomer = { id: "cus_existing", email: "test@example.com" };
     mockStripe.customers.search.mockResolvedValue({ data: [existingCustomer] });
@@ -61,7 +79,13 @@ describe("billing helpers", () => {
 
   it("getOrCreateCustomer creates new customer when not found", async () => {
     vi.resetModules();
-    vi.mock("stripe", () => ({ default: vi.fn(() => mockStripe) }));
+    vi.doMock("stripe", () => ({
+      default: class {
+        constructor() {
+          return mockStripe;
+        }
+      },
+    }));
     const { getOrCreateCustomer } = await import("../lib/billing");
     mockStripe.customers.search.mockResolvedValue({ data: [] });
     mockStripe.customers.create.mockResolvedValue({ id: "cus_new", email: "new@example.com" });
@@ -83,7 +107,13 @@ describe("billing helpers", () => {
 
   it("cancelSubscription sets cancel_at_period_end", async () => {
     vi.resetModules();
-    vi.mock("stripe", () => ({ default: vi.fn(() => mockStripe) }));
+    vi.doMock("stripe", () => ({
+      default: class {
+        constructor() {
+          return mockStripe;
+        }
+      },
+    }));
     const { cancelSubscription } = await import("../lib/billing");
     mockStripe.subscriptions.update.mockResolvedValue({
       id: "sub_123",

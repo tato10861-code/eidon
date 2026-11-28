@@ -4,7 +4,7 @@ vi.mock("../lib/neon", () => ({
   getNeon: vi.fn(() => null),
 }));
 vi.mock("../lib/usage", () => ({
-  getUsageStats: vi.fn(() => ({ totalTokens: 0, totalChats: 0 })),
+  getGlobalStats: vi.fn(() => ({ totalTokens: 0, totalChats: 0 })),
 }));
 
 describe("admin stats API", () => {
@@ -31,9 +31,9 @@ describe("admin stats API", () => {
   it("returns 200 with correct admin key (offline mode)", async () => {
     process.env.ADMIN_API_KEY = "test_admin_key_xyz";
     vi.resetModules();
-    vi.mock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
-    vi.mock("../lib/usage", () => ({
-      getUsageStats: vi.fn(() => ({ totalTokens: 1000, totalChats: 5 })),
+    vi.doMock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
+    vi.doMock("../lib/usage", () => ({
+      getGlobalStats: vi.fn(() => ({ totalTokens: 1000, totalChats: 5 })),
     }));
     const { GET } = await import("../app/api/admin/stats/route");
     const request = new Request("https://eidon.ai/api/admin/stats", {
@@ -58,7 +58,7 @@ describe("admin stats API", () => {
   it("admin workspaces returns 503 when db not configured", async () => {
     process.env.ADMIN_API_KEY = "test_admin_key_xyz";
     vi.resetModules();
-    vi.mock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
+    vi.doMock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
     const { GET } = await import("../app/api/admin/workspaces/route");
     const request = new Request("https://eidon.ai/api/admin/workspaces", {
       headers: { "x-admin-key": "test_admin_key_xyz" },

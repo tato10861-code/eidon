@@ -29,7 +29,7 @@ describe("POST /api/chat", () => {
   beforeEach(() => {
     vi.resetModules();
     // Re-apply mocks after resetModules
-    vi.mock("../lib/ai/engine", () => ({
+    vi.doMock("../lib/ai/engine", () => ({
       resolveEmployee: vi.fn(() => ({
         id: "ava",
         name: "Ava",
@@ -43,9 +43,9 @@ describe("POST /api/chat", () => {
         yield { type: "text", content: "Hello" };
       }),
     }));
-    vi.mock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
-    vi.mock("../lib/usage", () => ({ recordChat: vi.fn() }));
-    vi.mock("../lib/rate-limit", () => ({
+    vi.doMock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
+    vi.doMock("../lib/usage", () => ({ recordChat: vi.fn() }));
+    vi.doMock("../lib/rate-limit", () => ({
       rateLimit: vi.fn(() => ({ ok: true, remaining: 39, retryAfter: 0 })),
     }));
   });
@@ -86,17 +86,17 @@ describe("POST /api/chat", () => {
   });
 
   it("returns 429 when rate limit is exceeded", async () => {
-    vi.mock("../lib/rate-limit", () => ({
+    vi.doMock("../lib/rate-limit", () => ({
       rateLimit: vi.fn(() => ({ ok: false, remaining: 0, retryAfter: 10 })),
     }));
     vi.resetModules();
-    vi.mock("../lib/ai/engine", () => ({
+    vi.doMock("../lib/ai/engine", () => ({
       resolveEmployee: vi.fn(),
       runEmployee: vi.fn(),
     }));
-    vi.mock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
-    vi.mock("../lib/usage", () => ({ recordChat: vi.fn() }));
-    vi.mock("../lib/rate-limit", () => ({
+    vi.doMock("../lib/neon", () => ({ getNeon: vi.fn(() => null) }));
+    vi.doMock("../lib/usage", () => ({ recordChat: vi.fn() }));
+    vi.doMock("../lib/rate-limit", () => ({
       rateLimit: vi.fn(() => ({ ok: false, remaining: 0, retryAfter: 10 })),
     }));
     const { POST } = await import("../app/api/chat/route");

@@ -5,11 +5,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const neon = getNeon();
-  if (!neon) {
-    return Response.json({ error: "Database not configured" }, { status: 503 });
-  }
-
   const url = new URL(request.url);
   const workspaceId = url.searchParams.get("workspaceId");
   const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1"));
@@ -19,6 +14,11 @@ export async function GET(request: NextRequest) {
 
   if (!workspaceId) {
     return Response.json({ error: "workspaceId is required" }, { status: 400 });
+  }
+
+  const neon = getNeon();
+  if (!neon) {
+    return Response.json({ error: "Database not configured" }, { status: 503 });
   }
 
   type Row = {
