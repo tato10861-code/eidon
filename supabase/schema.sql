@@ -34,6 +34,42 @@ create table if not exists public.integration_credentials (
   primary key (workspace_id, provider)
 );
 
+create table if not exists public.api_keys (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  prefix text not null,
+  hash text not null unique,
+  name text not null,
+  scopes jsonb not null default '[]',
+  expires_at timestamptz,
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.usage_monthly (
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  period text not null,
+  api_calls bigint not null default 0,
+  chat_tokens bigint not null default 0,
+  conversation_turns bigint not null default 0,
+  export_jobs bigint not null default 0,
+  employee_runs jsonb not null default '{}',
+  updated_at timestamptz not null default now(),
+  primary key (workspace_id, period)
+);
+
+create table if not exists public.billing_subscriptions (
+  workspace_id uuid primary key references public.workspaces(id) on delete cascade,
+  provider text not null default 'stripe',
+  customer_id text,
+  subscription_id text unique,
+  status text not null default 'inactive',
+  plan text not null default 'starter',
+  current_period_end timestamptz,
+  updated_at timestamptz not null default now()
+);
+
 -- Employees (custom + cloned from templates)
 create table if not exists public.employees (
   id uuid primary key default gen_random_uuid(),
@@ -93,6 +129,8 @@ create table if not exists public.audit_log (
 -- Indexes
 create index if not exists idx_workspace_memberships_user on public.workspace_memberships(user_id);
 create index if not exists idx_integration_credentials_workspace on public.integration_credentials(workspace_id);
+create index if not exists idx_api_keys_workspace on public.api_keys(workspace_id);
+create index if not exists idx_usage_monthly_workspace on public.usage_monthly(workspace_id);
 create index if not exists idx_employees_workspace on public.employees(workspace_id);
 create index if not exists idx_conversations_workspace on public.conversations(workspace_id);
 create index if not exists idx_messages_conversation on public.messages(conversation_id);
@@ -103,6 +141,9 @@ create index if not exists idx_tool_calls_conversation on public.tool_calls(conv
 alter table public.workspaces enable row level security;
 alter table public.workspace_memberships enable row level security;
 alter table public.integration_credentials enable row level security;
+alter table public.api_keys enable row level security;
+alter table public.usage_monthly enable row level security;
+alter table public.billing_subscriptions enable row level security;
 alter table public.employees enable row level security;
 alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
@@ -131,6 +172,9 @@ drop policy if exists "demo_all_audit" on public.audit_log;
 drop policy if exists "members can read memberships" on public.workspace_memberships;
 drop policy if exists "admins can manage memberships" on public.workspace_memberships;
 drop policy if exists "members can access integration credentials" on public.integration_credentials;
+drop policy if exists "admins can access api keys" on public.api_keys;
+drop policy if exists "members can read usage" on public.usage_monthly;
+drop policy if exists "admins can read billing" on public.billing_subscriptions;
 
 create policy "members can read memberships" on public.workspace_memberships
   for select using (user_id = auth.uid() or public.is_workspace_member(workspace_id));
@@ -141,6 +185,12 @@ create policy "admins can manage memberships" on public.workspace_memberships
   with check (public.is_workspace_member(workspace_id));
 create policy "members can access integration credentials" on public.integration_credentials
   for all using (public.is_workspace_member(workspace_id)) with check (public.is_workspace_member(workspace_id));
+create policy "admins can access api keys" on public.api_keys
+  for all using (public.is_workspace_member(workspace_id)) with check (public.is_workspace_member(workspace_id));
+create policy "members can read usage" on public.usage_monthly
+  for select using (public.is_workspace_member(workspace_id));
+create policy "admins can read billing" on public.billing_subscriptions
+  for select using (public.is_workspace_member(workspace_id));
 
 create policy "members can read workspaces" on public.workspaces
   for select using (public.is_workspace_member(id));

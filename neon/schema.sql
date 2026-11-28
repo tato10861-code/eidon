@@ -33,6 +33,42 @@ create table if not exists integration_credentials (
   primary key (workspace_id, provider)
 );
 
+create table if not exists api_keys (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  prefix text not null,
+  hash text not null unique,
+  name text not null,
+  scopes jsonb not null default '[]',
+  expires_at timestamptz,
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists usage_monthly (
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  period text not null,
+  api_calls bigint not null default 0,
+  chat_tokens bigint not null default 0,
+  conversation_turns bigint not null default 0,
+  export_jobs bigint not null default 0,
+  employee_runs jsonb not null default '{}',
+  updated_at timestamptz not null default now(),
+  primary key (workspace_id, period)
+);
+
+create table if not exists billing_subscriptions (
+  workspace_id uuid primary key references workspaces(id) on delete cascade,
+  provider text not null default 'stripe',
+  customer_id text,
+  subscription_id text unique,
+  status text not null default 'inactive',
+  plan text not null default 'starter',
+  current_period_end timestamptz,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists employees (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid references workspaces(id) on delete cascade,
@@ -108,6 +144,7 @@ create table if not exists webhook_deliveries (
 
 create index if not exists idx_workspace_memberships_user on workspace_memberships(user_id);
 create index if not exists idx_integration_credentials_workspace on integration_credentials(workspace_id);
+create index if not exists idx_api_keys_workspace on api_keys(workspace_id);
 create index if not exists idx_employees_workspace on employees(workspace_id);
 create index if not exists idx_conversations_workspace on conversations(workspace_id);
 create index if not exists idx_messages_conversation on messages(conversation_id);

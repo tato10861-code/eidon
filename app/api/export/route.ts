@@ -20,9 +20,10 @@ import type { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSupabase } from "@/lib/supabase";
 import { getNeon } from "@/lib/neon";
-import { recordExport } from "@/lib/usage";
+import { persistUsage, recordExport } from "@/lib/usage";
 import { employees } from "@/lib/employees";
 import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
+import { assertEntitled, entitlementError } from "@/lib/billing/entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +81,14 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return accessError(error);
   }
+  try {
+    await assertEntitled(workspaceId, "exportJobs", 1);
+  } catch (error) {
+    return (
+      entitlementError(error) ??
+      Response.json({ error: "Plan entitlement check failed." }, { status: 500 })
+    );
+  }
 
   const rl = rateLimit(`export:${workspaceId}`, 5, 60_000);
   if (!rl.ok) {
@@ -87,6 +96,11 @@ export async function GET(request: NextRequest) {
   }
 
   recordExport(workspaceId);
+  try {
+    await persistUsage(workspaceId, "export_jobs", 1);
+  } catch {
+    // Keep the demo/export path available while an installation is being migrated.
+  }
 
   let records: TrainingRecord[] = [];
 

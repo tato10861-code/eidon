@@ -2,9 +2,10 @@ import type { NextRequest } from "next/server";
 import { resolveEmployee, runEmployee } from "@/lib/ai/engine";
 import { rateLimit } from "@/lib/rate-limit";
 import { getNeon } from "@/lib/neon";
-import { recordChat } from "@/lib/usage";
+import { persistUsage, recordChat } from "@/lib/usage";
 import type { EmployeeConfig } from "@/lib/types";
 import { accessError, authorizeWorkspace } from "@/lib/auth/authorization";
+import { assertEntitled, entitlementError } from "@/lib/billing/entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return accessError(error);
   }
+  try {
+    await assertEntitled(workspaceId, "conversationTurns", 1);
+  } catch (error) {
+    return (
+      entitlementError(error) ??
+      Response.json({ error: "Plan entitlement check failed." }, { status: 500 })
+    );
+  }
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -108,6 +117,12 @@ export async function POST(request: NextRequest) {
         }
 
         recordChat(workspaceId, totalTokens, employee.id);
+        try {
+          await persistUsage(workspaceId, "conversation_turns", 1, employee.id);
+          if (totalTokens > 0) await persistUsage(workspaceId, "chat_tokens", totalTokens);
+        } catch {
+          // The in-memory counter remains available if the billing ledger is unavailable.
+        }
       } catch {
         send({
           type: "error",
