@@ -9,12 +9,17 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Move v0.2.0 tag to correct merge commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api -X DELETE /repos/${{ github.repository }}/git/refs/tags/v0.2.0
-          gh api -X POST  /repos/${{ github.repository }}/git/refs \
-            -f ref="refs/tags/v0.2.0" \
-            -f sha="bb347f6f56292bd979c0de65d07ff3836f9b4866"
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git tag -d v0.2.0 || true
+          git push origin :refs/tags/v0.2.0
+          git tag v0.2.0 bb347f6f56292bd979c0de65d07ff3836f9b4866
+          git push origin refs/tags/v0.2.0
           echo "Tag v0.2.0 now points to bb347f6"
