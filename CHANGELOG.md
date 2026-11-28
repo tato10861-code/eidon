@@ -9,11 +9,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Added — Enterprise billing
 
+- **Stripe billing integration** (`lib/billing.ts`): `createCheckoutSession`,
+  `createPortalSession`, `getOrCreateCustomer`, `cancelSubscription`,
+  `constructWebhookEvent` — lazy-loads Stripe to minimise cold start overhead
+- **Billing API routes**:
+  - `POST /api/billing/checkout` — creates a Stripe Checkout Session for
+    subscription upgrades; persists Stripe customer ID on the workspace row
+  - `POST /api/billing/portal` — opens the Stripe Customer Portal for
+    self-service billing management
+  - `POST /api/billing/webhook` — receives Stripe events (`checkout.session.completed`,
+    `customer.subscription.updated`, `customer.subscription.deleted`,
+    `invoice.payment_failed`); updates workspace plan and writes audit entries
+- **Database migration** (`neon/migrations/001_billing.sql`): adds
+  `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`,
+  `billing_period_end`, `seats`, `updated_at` to `workspaces`; new `subscriptions`
+  and `invoices` tables with covering indexes
 - **Vercel Web Analytics** (`@vercel/analytics` v2.0.1): page-view and Web Vitals
   tracking enabled in the Vercel dashboard with zero configuration beyond mounting
   `<Analytics />` in the root layout
+
+### Added — Admin & observability
+
+- **Admin API** (`/api/admin/stats`, `/api/admin/workspaces`): protected by
+  `x-admin-key` header matching `ADMIN_API_KEY`; returns runtime stats, memory,
+  workspace counts by plan, and paginated workspace listing
+- **Audit log API** (`GET /api/audit`, `POST /api/audit`): retrieves and writes
+  workspace-scoped audit events with pagination and optional `action` filter
+
+### Added — API documentation
+
+- **Interactive API reference** at `/docs/api` using RapiDoc 9.3.4; themed to the
+  Eidon dark palette; loads the existing `/openapi.yaml` spec with authentication
+  support and live request execution
+
+### Added — Test coverage
+
+- `tests/billing.test.ts` — 5 unit tests for Stripe helpers via Vitest mocking
+- `tests/webhooks.test.ts` — 6 unit tests for HMAC signature verification
+- `tests/audit.test.ts` — 4 integration tests for the audit log API (offline mode)
+- `tests/admin.test.ts` — 5 integration tests for admin API auth and responses
+
+### Added — Configuration
+
+- `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_PRICE_SCALE_MONTHLY`, `STRIPE_PRICE_SCALE_ANNUAL`, `ADMIN_API_KEY`
+  documented in `.env.example`
 
 ---
 
