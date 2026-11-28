@@ -967,23 +967,34 @@ interface ProviderConfig {
 function resolveProvider(): ProviderConfig | null {
   const e = process.env;
 
-  // OpenRouter — 100+ models via one key; best for multi-model support
-  if (e.OPENROUTER_API_KEY)
+  // OpenRouter — supports both OPENROUTER_API_KEY and OPENROUTERAI_API_KEY (Vercel variant)
+  const orKey = e.OPENROUTER_API_KEY ?? e.OPENROUTERAI_API_KEY;
+  if (orKey)
     return {
       name: "openrouter",
       baseUrl: "https://openrouter.ai/api/v1",
-      apiKey: e.OPENROUTER_API_KEY,
+      apiKey: orKey,
       model: e.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4-5",
       extraHeaders: { "HTTP-Referer": "https://eidon.ai", "X-Title": "Eidon" },
     };
 
-  // Google Gemini — via OpenAI-compatible endpoint
-  if (e.GEMINI_API_KEY ?? e.GOOGLE_API_KEY)
+  // Google Gemini — supports GEMINI_API_KEY, GMINI_API_KEY (typo variant), GOOGLE_API_KEY
+  const geminiKey = e.GEMINI_API_KEY ?? e.GMINI_API_KEY ?? e.GOOGLE_API_KEY;
+  if (geminiKey)
     return {
       name: "gemini",
       baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-      apiKey: (e.GEMINI_API_KEY ?? e.GOOGLE_API_KEY) as string,
+      apiKey: geminiKey,
       model: e.GEMINI_MODEL ?? "gemini-2.0-flash",
+    };
+
+  // Mistral AI — large language models (mistral-large, codestral…)
+  if (e.MISTRAL_API_KEY)
+    return {
+      name: "mistral",
+      baseUrl: "https://api.mistral.ai/v1",
+      apiKey: e.MISTRAL_API_KEY,
+      model: e.MISTRAL_MODEL ?? "mistral-large-latest",
     };
 
   // Cohere — command-r family, strong for Arabic
@@ -1004,7 +1015,7 @@ function resolveProvider(): ProviderConfig | null {
       model: e.XAI_MODEL ?? "grok-3-mini",
     };
 
-  // AI71 — Falcon models (UAE / MENA)
+  // AI71 — Falcon models (UAE / MENA sovereign AI)
   if (e.AI71_API_KEY)
     return {
       name: "ai71",

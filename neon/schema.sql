@@ -64,7 +64,32 @@ create table if not exists audit_log (
   created_at timestamptz not null default now()
 );
 
+create table if not exists webhooks (
+  id text primary key,
+  workspace_id uuid references workspaces(id) on delete cascade,
+  url text not null,
+  events jsonb not null default '[]',
+  signing_secret text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists webhook_deliveries (
+  id text primary key,
+  webhook_id text references webhooks(id) on delete cascade,
+  event text not null,
+  payload jsonb not null,
+  status_code integer,
+  success boolean not null default false,
+  attempt integer not null default 1,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists idx_employees_workspace on employees(workspace_id);
 create index if not exists idx_conversations_workspace on conversations(workspace_id);
 create index if not exists idx_messages_conversation on messages(conversation_id);
 create index if not exists idx_tool_calls_conversation on tool_calls(conversation_id);
+create index if not exists idx_webhooks_workspace on webhooks(workspace_id);
+create index if not exists idx_webhooks_active on webhooks(active) where active = true;
+create index if not exists idx_webhook_deliveries_webhook on webhook_deliveries(webhook_id);

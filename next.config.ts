@@ -10,6 +10,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // standalone output enables Docker deployment for enterprise self-hosted
+  output: process.env.DOCKER_BUILD === "1" ? "standalone" : undefined,
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

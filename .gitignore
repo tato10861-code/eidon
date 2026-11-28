@@ -1,5 +1,5 @@
 # dependencies
-/node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -15,6 +15,14 @@ next-env.d.ts
 
 # production
 /build
+
+# python
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+dist/
+.hatch/
+**/.pytest_cache/
 
 # misc
 .DS_Store

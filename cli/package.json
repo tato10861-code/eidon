@@ -1,0 +1,34 @@
+{
+  "name": "@eidon/cli",
+  "version": "0.2.0",
+  "description": "Eidon CLI — interact with AI employees from the terminal",
+  "bin": {
+    "eidon": "./dist/index.js"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --banner.js '#!/usr/bin/env node'",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": [
+    "eidon",
+    "ai",
+    "cli"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,17 @@
+apiVersion: v2
+name: eidon
+description: Eidon AI employee platform — enterprise Kubernetes deployment
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - ai
+  - llm
+  - employee
+  - saas
+home: https://eidon.ai
+sources:
+  - https://github.com/tato10861-code/eidon
+maintainers:
+  - name: Eidon Engineering
+    url: https://eidon.ai

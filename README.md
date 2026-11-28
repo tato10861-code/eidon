@@ -3,18 +3,31 @@
 **The AI employee company.** Build, deploy and manage production-ready AI employees that
 reason, use your tools and finish real work.
 
+<!-- CI & security -->
+
 [![CI](https://github.com/tato10861-code/eidon/actions/workflows/ci.yml/badge.svg)](https://github.com/tato10861-code/eidon/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/tato10861-code/eidon/actions/workflows/codeql.yml/badge.svg)](https://github.com/tato10861-code/eidon/actions/workflows/codeql.yml)
-[![Release](https://img.shields.io/github/v/release/tato10861-code/eidon?color=cbff5a)](https://github.com/tato10861-code/eidon/releases)
-[![Production deploy](https://img.shields.io/github/deployments/tato10861-code/eidon/production?label=vercel%20prod)](https://eidon-two.vercel.app)
-[![Preview deploy](https://img.shields.io/github/deployments/tato10861-code/eidon/preview?label=vercel%20preview)](https://github.com/tato10861-code/eidon/deployments)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript)](https://www.typescriptlang.org)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel)](https://vercel.com)
+[![SDK](https://github.com/tato10861-code/eidon/actions/workflows/sdk.yml/badge.svg)](https://github.com/tato10861-code/eidon/actions/workflows/sdk.yml)
+<!-- release & deploy -->
 
-> **v0.1.0 — early access.** The platform, the workforce and the runtime are complete.
-> Workspace auth, live OAuth tool execution and billing are the next milestones.
+[![Release](https://img.shields.io/github/v/release/tato10861-code/eidon?color=cbff5a&logo=github)](https://github.com/tato10861-code/eidon/releases)
+[![Production deploy](https://img.shields.io/github/deployments/tato10861-code/eidon/production?label=vercel%20prod)](https://eidon-two.vercel.app)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ed?logo=docker)](https://github.com/tato10861-code/eidon/pkgs/container/eidon)
+<!-- SDKs -->
+
+[![npm](https://img.shields.io/npm/v/eidon?label=npm%20sdk&color=cb3837&logo=npm)](https://www.npmjs.com/package/eidon)
+[![PyPI](https://img.shields.io/pypi/v/eidon?label=pypi%20sdk&color=3775a9&logo=python)](https://pypi.org/project/eidon/)
+[![npm CLI](https://img.shields.io/npm/v/@eidon/cli?label=npm%20cli&color=cb3837&logo=npm)](https://www.npmjs.com/package/@eidon/cli)
+<!-- stack -->
+
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript)](https://www.typescriptlang.org)
+[![License](https://img.shields.io/github/license/tato10861-code/eidon)](LICENSE)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6ba539?logo=openapiinitiative)](openapi.yaml)
+
+> **v0.2.0** — Multi-provider AI engine, Node.js / Python / Go SDKs, OpenAPI spec,
+> Webhooks, CLI, Helm chart, and multi-arch Docker images now ship.
+> Workspace OAuth, billing, and live tool execution are the next milestones.
 
 **Product model:** B2B SaaS. Multi-tenant workspaces, per-workspace billing and usage,
 regional data residency, SSO/SCIM on Enterprise. Free Starter tier, $499/mo Scale,
